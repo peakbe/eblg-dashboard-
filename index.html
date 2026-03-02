@@ -2,45 +2,142 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+
+  <!-- ▾ SECTION: META & TITLE ============================================================ -->
   <title>EBLG – FIDS, METAR, Bruit (Diapason), ADS‑B & Sonomètres</title>
+  <!-- ▴ END SECTION: META & TITLE ======================================================== -->
+
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
+  <!-- ▾ SECTION: LEAFLET & LIBRARIES ===================================================== -->
+  <!-- Leaflet (cartographie), Heatmap, Chart.js, SignalR -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
-  <style>
-    body { margin:0; font-family:system-ui; display:flex; flex-direction:column; height:100vh; }
-    header { background:#111827; color:#f9fafb; padding:0.5rem 1rem; display:flex; justify-content:space-between; }
-    main { display:grid; grid-template-columns:320px 1fr; flex:1; }
-    #sidebar { padding:1rem; overflow-y:auto; border-right:1px solid #ddd; font-size:0.85rem; }
-    #map { width:100%; height:100%; }
-    .block { margin-bottom:1rem; border-bottom:1px solid #ddd; padding-bottom:1rem; }
-    .metar { background:#C7C7D1; padding:0.4rem; border-radius:4px; font-family:monospace; }
-    .small { font-size:1rem; color:#555; }
-    .tag { background:#eee; padding:2px 6px; border-radius:4px; font-size:0.7rem; }
-    .tag.impacted { background:#1CB939; color:#FFFFFF; }
-    .flight-row { padding:3px 0; cursor:pointer; }
-    .flight-row:hover { background:#f3f4f6; }
-    button.tag { cursor:pointer; border:none; background:#e5e7eb; padding:3px 8px; border-radius:4px; margin-right:4px; }
-    button.tag:hover { background:#d1d5db; }
-    @media(max-width:768px){
-      main{display:flex; flex-direction:column;}
-      #sidebar{border-right:none; border-bottom:1px solid #ddd; max-height:45vh;}
-      #map{height:55vh;}
-    }
-  </style>
-
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
+  <!-- ▴ END SECTION: LEAFLET & LIBRARIES ================================================= -->
+
+  <!-- ▾ SECTION: GLOBAL CSS =============================================================== -->
+  <style>
+    /* Structure générale */
+    body {
+      margin: 0;
+      font-family: system-ui;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background: #111827;
+      color: #f9fafb;
+      padding: 0.5rem 1rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      flex: 1;
+    }
+
+    #sidebar {
+      padding: 1rem;
+      overflow-y: auto;
+      border-right: 1px solid #ddd;
+      font-size: 0.85rem;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Blocs du panneau latéral */
+    .block {
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 1rem;
+    }
+
+    .metar {
+      background: #C7C7D1;
+      padding: 0.4rem;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    .small {
+      font-size: 1rem;
+      color: #555;
+    }
+
+    .tag {
+      background: #eee;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+    }
+
+    .tag.impacted {
+      background: #1CB939;
+      color: #FFFFFF;
+    }
+
+    .flight-row {
+      padding: 3px 0;
+      cursor: pointer;
+    }
+
+    .flight-row:hover {
+      background: #f3f4f6;
+    }
+
+    button.tag {
+      cursor: pointer;
+      border: none;
+      background: #e5e7eb;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-right: 4px;
+    }
+
+    button.tag:hover {
+      background: #d1d5db;
+    }
+
+    /* Responsive */
+    @media(max-width:768px){
+      main {
+        display: flex;
+        flex-direction: column;
+      }
+      #sidebar {
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+        max-height: 45vh;
+      }
+      #map {
+        height: 55vh;
+      }
+    }
+  </style>
+  <!-- ▴ END SECTION: GLOBAL CSS =========================================================== -->
+
 </head>
 
 <body>
+
+<!-- ▾ SECTION: HEADER ===================================================================== -->
 <header>
   <h1>EBLG – FIDS + METAR + Bruit (Diapason) + ADS‑B</h1>
   <div class="small">Interface consolidée</div>
 </header>
+<!-- ▴ END SECTION: HEADER ================================================================= -->
 
+<!-- ▾ SECTION: CONTROLS (UI BUTTONS) ====================================================== -->
 <div id="controls" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
   <button id="toggle-heatmap" class="tag">Heatmap : ON</button>
   <button id="toggle-corridor" class="tag">Corridor : ON</button>
@@ -48,9 +145,14 @@
   <button id="toggle-sonos" class="tag">Sonomètres : ON</button>
   <button id="reset-map" class="tag">Reset Carte</button>
 </div>
+<!-- ▴ END SECTION: CONTROLS =============================================================== -->
 
+<!-- ▾ SECTION: MAIN LAYOUT ================================================================ -->
 <main>
+
+  <!-- ▾ SECTION: SIDEBAR ================================================================== -->
   <section id="sidebar">
+
     <div class="block">
       <h2>Météo EBLG</h2>
       <div id="meteo-summary" class="small">Chargement...</div>
@@ -91,51 +193,91 @@
       <h2>Détail du vol</h2>
       <div id="flight-detail" class="small">Sélectionnez un vol…</div>
     </div>
+
   </section>
+  <!-- ▴ END SECTION: SIDEBAR =============================================================== -->
 
+  <!-- ▾ SECTION: MAP ====================================================================== -->
   <section id="map"></section>
+  <!-- ▴ END SECTION: MAP ================================================================== -->
+
 </main>
+<!-- ▴ END SECTION: MAIN LAYOUT ============================================================ -->
 
+<!-- ▾ SECTION: JAVASCRIPT ROOT ============================================================ -->
 <script>
-/* ============================================================
-   CONFIG
-============================================================ */
-const AVWX_TOKEN="ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc";
-const PROXY="https://eblg-proxy.onrender.com/fids?url=";
-const URL_ARR=PROXY+encodeURIComponent("https://fids.liegeairport.com/api/flights/Arrivals");
-const URL_DEP=PROXY+encodeURIComponent("https://fids.liegeairport.com/api/flights/Departures");
+/* ▾ SECTION: CONFIGURATION GLOBALE ======================================================= */
+/*
+  Variables globales utilisées dans tout le dashboard :
+  - AVWX_TOKEN : clé API METAR
+  - PROXY : proxy Render pour contourner CORS FIDS
+  - URL_ARR / URL_DEP : endpoints FIDS
+  - EBLG : coordonnées + pistes
+  - États internes : filtre FIDS, heading piste, cache ADS‑B, etc.
+*/
+const AVWX_TOKEN = "ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc";
+const PROXY = "https://eblg-proxy.onrender.com/fids?url=";
 
-const EBLG={lat:50.6374,lon:5.4432,runways:[{name:"04",heading:40},{name:"22",heading:220}]};
+const URL_ARR = PROXY + encodeURIComponent("https://fids.liegeairport.com/api/flights/Arrivals");
+const URL_DEP = PROXY + encodeURIComponent("https://fids.liegeairport.com/api/flights/Departures");
 
-let FLT_FILTER="ALL", lastHeading=null, lastRunway=null;
-let ADSB_BY_CALLSIGN={}, LAST_FIDS=null;
+const EBLG = {
+  lat: 50.6374,
+  lon: 5.4432,
+  runways: [
+    { name: "04", heading: 40 },
+    { name: "22", heading: 220 }
+  ]
+};
 
-/* ============================================================
-   SONOMÈTRES
-============================================================ */
-const SONOS=[
-  {id:"F017",lat:50.764883,lon:5.630606,addr:"Rue de la Pommeraie, 4690 Wonck"},
-  {id:"F001",lat:50.738044,lon:5.608833,addr:"Rue Franquet, Houtain"},
-  {id:"F014",lat:50.718894,lon:5.573164,addr:"Rue Léon Labaye, Juprelle"},
-  {id:"F015",lat:50.688839,lon:5.526217,addr:"Rue du Brouck, Juprelle"},
-  {id:"F005",lat:50.639331,lon:5.323519,addr:"Rue Caquin, Haneffe"},
-  {id:"F003",lat:50.601167,lon:5.3814,addr:"Rue Fond Méan, St Georges"},
-  {id:"F011",lat:50.601142,lon:5.356006,addr:"Rue Albert 1er, St Georges"},
-  {id:"F008",lat:50.594878,lon:5.35895,addr:"Rue Warfusée, St Georges"},
-  {id:"F002",lat:50.588414,lon:5.370522,addr:"Rue Noiset, St Georges"},
-  {id:"F007",lat:50.590756,lon:5.345225,addr:"Rue Yernawe, St Georges"},
-  {id:"F009",lat:50.580831,lon:5.355417,addr:"Bibliothèque, Place Verte, Stockay"},
-  {id:"F004",lat:50.605414,lon:5.321406,addr:"Vinâve des Stréats, Verlaine"},
-  {id:"F010",lat:50.599392,lon:5.313492,addr:"Rue Haute Voie, Verlaine"},
-  {id:"F013",lat:50.586914,lon:5.308678,addr:"Rue Bois Léon, Verlaine"},
-  {id:"F016",lat:50.619617,lon:5.295344,addr:"Rue de Chapon-Seraing, Verlaine"},
-  {id:"F006",lat:50.609594,lon:5.271403,addr:"Rue Bolly Chapon, Seraing"},
-  {id:"F012",lat:50.621917,lon:5.254747,addr:"Rue Barbe d'Or, Aineffe"}
+let FLT_FILTER = "ALL";
+let lastHeading = null;
+let lastRunway = null;
+
+let ADSB_BY_CALLSIGN = {};
+let LAST_FIDS = null;
+/* ▴ END SECTION: CONFIGURATION GLOBALE =================================================== */
+
+
+
+/* ▾ SECTION: SONOMETRES (LISTE OFFICIELLE) =============================================== */
+/*
+  Liste officielle des sonomètres fournie par l'aéroport.
+  Chaque entrée contient :
+  - id : identifiant officiel
+  - lat/lon : coordonnées WGS84
+  - addr : adresse descriptive
+*/
+const SONOS = [
+  { id:"F017", lat:50.764883, lon:5.630606, addr:"Rue de la Pommeraie, 4690 Wonck" },
+  { id:"F001", lat:50.738044, lon:5.608833, addr:"Rue Franquet, Houtain" },
+  { id:"F014", lat:50.718894, lon:5.573164, addr:"Rue Léon Labaye, Juprelle" },
+  { id:"F015", lat:50.688839, lon:5.526217, addr:"Rue du Brouck, Juprelle" },
+  { id:"F005", lat:50.639331, lon:5.323519, addr:"Rue Caquin, Haneffe" },
+  { id:"F003", lat:50.601167, lon:5.3814,   addr:"Rue Fond Méan, St Georges" },
+  { id:"F011", lat:50.601142, lon:5.356006, addr:"Rue Albert 1er, St Georges" },
+  { id:"F008", lat:50.594878, lon:5.35895,  addr:"Rue Warfusée, St Georges" },
+  { id:"F002", lat:50.588414, lon:5.370522, addr:"Rue Noiset, St Georges" },
+  { id:"F007", lat:50.590756, lon:5.345225, addr:"Rue Yernawe, St Georges" },
+  { id:"F009", lat:50.580831, lon:5.355417, addr:"Bibliothèque, Place Verte, Stockay" },
+  { id:"F004", lat:50.605414, lon:5.321406, addr:"Vinâve des Stréats, Verlaine" },
+  { id:"F010", lat:50.599392, lon:5.313492, addr:"Rue Haute Voie, Verlaine" },
+  { id:"F013", lat:50.586914, lon:5.308678, addr:"Rue Bois Léon, Verlaine" },
+  { id:"F016", lat:50.619617, lon:5.295344, addr:"Rue de Chapon-Seraing, Verlaine" },
+  { id:"F006", lat:50.609594, lon:5.271403, addr:"Rue Bolly Chapon, Seraing" },
+  { id:"F012", lat:50.621917, lon:5.254747, addr:"Rue Barbe d'Or, Aineffe" }
 ];
+/* ▴ END SECTION: SONOMETRES ============================================================== */
 
-/* ============================================================
-   MATRICE OFFICIELLE SONO_RULES
-============================================================ */
+
+
+/* ▾ SECTION: MATRICE SONO_RULES (OFFICIELLE) ============================================= */
+/*
+  Matrice officielle fournie par l'aéroport :
+  - RWY 22 : simple (ARR / DEP)
+  - RWY 04 : logique verte/rouge selon ARR/DEP
+  Utilisée pour colorer les sonomètres en fonction de la piste et du sens.
+*/
 const SONO_RULES = {
   "22": {
     "DEP": ["F002","F003","F004","F005","F006","F007","F008","F009","F010","F011","F012","F013","F016"],
@@ -149,409 +291,645 @@ const SONO_RULES = {
   }
 };
 
-const COLOR={green:"#10b981",red:"#ef4444",gray:"#6b7280"};
+const COLOR = {
+  green: "#10b981",
+  red:   "#ef4444",
+  gray:  "#6b7280"
+};
+/* ▴ END SECTION: MATRICE SONO_RULES ======================================================= */
 
-/* ============================================================
-   MAP + SONO MARKERS
-============================================================ */
-const map=L.map("map").setView([EBLG.lat,EBLG.lon],11);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-L.circleMarker([EBLG.lat,EBLG.lon],{
-  radius:7,
-  color:"#2563eb",
-  fillColor:"#2563eb",
-  fillOpacity:1
+
+/* ▾ SECTION: MAP INITIALISATION =========================================================== */
+/*
+  Initialisation Leaflet :
+  - centrage sur EBLG
+  - ajout du fond OSM
+  - ajout du marqueur EBLG
+  - création des marqueurs sonomètres
+*/
+const map = L.map("map").setView([EBLG.lat, EBLG.lon], 11);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png")
+  .addTo(map);
+
+L.circleMarker([EBLG.lat, EBLG.lon], {
+  radius: 7,
+  color: "#2563eb",
+  fillColor: "#2563eb",
+  fillOpacity: 1
 }).addTo(map).bindPopup("EBLG – Liège Airport");
 
-const SONO_MARKERS=SONOS.map(s=>{
-  const m=L.circleMarker([s.lat,s.lon],{
-    radius:5,color:COLOR.gray,fillColor:COLOR.gray,fillOpacity:1
-  }).addTo(map)
-    .bindPopup(`<strong>${s.id}</strong><br>${s.addr}<br><span id="lv_${s.id}">niveau: … dB(A)</span><br><br><canvas id="chart_${s.id}" width="250" height="120"></canvas>`);
-  return {...s,marker:m};
+/* Création des marqueurs sonomètres sur la carte */
+const SONO_MARKERS = SONOS.map(s => {
+  const m = L.circleMarker([s.lat, s.lon], {
+    radius: 5,
+    color: COLOR.gray,
+    fillColor: COLOR.gray,
+    fillOpacity: 1
+  })
+  .addTo(map)
+  .bindPopup(`
+    <strong>${s.id}</strong><br>
+    ${s.addr}<br>
+    <span id="lv_${s.id}">niveau: … dB(A)</span><br><br>
+    <canvas id="chart_${s.id}" width="250" height="120"></canvas>
+  `);
+
+  return { ...s, marker: m };
 });
+/* ▴ END SECTION: MAP INITIALISATION ======================================================= */
 
-/* ============================================================
-   OUTILS GÉO
-============================================================ */
-function toRad(d){return d*Math.PI/180}
-function toDeg(r){return 180*r/Math.PI}
+/* ▾ SECTION: OUTILS GEOMETRIQUES ========================================================= */
+/*
+  Fonctions géographiques utilisées dans :
+  - corridor bruit
+  - distance sonomètres ↔ trajectoire
+  - détection décollage (offset centre ligne)
+  - projections géographiques
+*/
+function toRad(d){ return d * Math.PI / 180; }
+function toDeg(r){ return r * 180 / Math.PI; }
 
-function computePoint([lat,lon],hd,km){
-  const R=6371,d=km/R,h=toRad(hd),la=toRad(lat),lo=toRad(lon);
-  const la2=Math.asin(Math.sin(la)*Math.cos(d)+Math.cos(la)*Math.sin(d)*Math.cos(h));
-  const lo2=lo+Math.atan2(Math.sin(h)*Math.sin(d)*Math.cos(la),Math.cos(d)-Math.sin(la)*Math.sin(la2));
-  return[toDeg(la2),toDeg(lo2)];
+/* Projection d’un point à partir d’un cap + distance (km) */
+function computePoint([lat,lon], hd, km){
+  const R = 6371;
+  const d = km / R;
+  const h = toRad(hd);
+  const la = toRad(lat);
+  const lo = toRad(lon);
+
+  const la2 = Math.asin(
+    Math.sin(la)*Math.cos(d) +
+    Math.cos(la)*Math.sin(d)*Math.cos(h)
+  );
+
+  const lo2 = lo + Math.atan2(
+    Math.sin(h)*Math.sin(d)*Math.cos(la),
+    Math.cos(d) - Math.sin(la)*Math.sin(la2)
+  );
+
+  return [toDeg(la2), toDeg(lo2)];
 }
 
+/* Distance Haversine (km) */
 function distanceKm(a,b,c,d){
-  const R=6371,dl=toRad(c-a),dn=toRad(d-b);
-  const h=Math.sin(dl/2)**2+Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dn/2)**2;
+  const R=6371;
+  const dl=toRad(c-a), dn=toRad(d-b);
+  const h = Math.sin(dl/2)**2 +
+            Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dn/2)**2;
   return 2*R*Math.atan2(Math.sqrt(h),Math.sqrt(1-h));
 }
 
-function distancePointToSegmentKm(p,A,B){
-  const kx=111*Math.cos(toRad((A[0]+B[0])/2)),ky=111;
-  const px=(p[1]-A[1])*kx,py=(p[0]-A[0])*ky;
-  const bx=(B[1]-A[1])*kx,by=(B[0]-A[0])*ky;
-  const t=Math.max(0,Math.min(1,(px*bx+py*by)/(bx*bx+by*by||1)));
-  const qx=t*bx,qy=t*by;
-  return Math.sqrt((px-qx)**2+(py-qy)**2);
+/* Distance point → segment (km) en projection locale */
+function distancePointToSegmentKm(p, A, B){
+  const kx = 111 * Math.cos(toRad((A[0]+B[0])/2));
+  const ky = 111;
+
+  const px=(p[1]-A[1])*kx, py=(p[0]-A[0])*ky;
+  const bx=(B[1]-A[1])*kx, by=(B[0]-A[0])*ky;
+
+  const t = Math.max(0, Math.min(1, (px*bx+py*by)/(bx*bx+by*by || 1)));
+
+  const qx = t*bx, qy = t*by;
+  return Math.sqrt((px-qx)**2 + (py-qy)**2);
 }
 
-function pointInPolygon([x,y],poly){
+/* Test point ∈ polygone (ray casting) */
+function pointInPolygon([x,y], poly){
   let inside=false;
   for(let i=0,j=poly.length-1;i<poly.length;j=i++){
-    const[xi,yi]=poly[i],[xj,yj]=poly[j];
-    const inter=yi>y!=yj>y&&x<(xj-xi)*(y-yi)/(yj-yi+1e-12)+xi;
-    if(inter)inside=!inside;
+    const [xi,yi]=poly[i], [xj,yj]=poly[j];
+    const inter = yi>y != yj>y &&
+      x < (xj-xi)*(y-yi)/(yj-yi+1e-12) + xi;
+    if(inter) inside=!inside;
   }
   return inside;
 }
+/* ▴ END SECTION: OUTILS GEOMETRIQUES ===================================================== */
 
-/* ============================================================
-   RUNWAYS
-============================================================ */
-const RWY04_START=[50.63795,5.4438],RWY04_END=[50.6436,5.452],RWY04_HEADING=40;
-const RWY22_START=RWY04_END,RWY22_END=RWY04_START,RWY22_HEADING=220;
 
-const RWY04_POLY=[
- computePoint(RWY04_START,RWY04_HEADING-90,0.03),
- computePoint(RWY04_END,RWY04_HEADING-90,0.03),
- computePoint(RWY04_END,RWY04_HEADING+90,0.03),
- computePoint(RWY04_START,RWY04_HEADING+90,0.03)];
 
-const RWY22_POLY=[
- computePoint(RWY22_START,RWY22_HEADING-90,0.03),
- computePoint(RWY22_END,RWY22_HEADING-90,0.03),
- computePoint(RWY22_END,RWY22_HEADING+90,0.03),
- computePoint(RWY22_START,RWY22_HEADING+90,0.03)];
+/* ▾ SECTION: RUNWAYS (DEFINITION + POLYGONES) ============================================ */
+/*
+  Définition des pistes :
+  - RWY 04 : cap 40°
+  - RWY 22 : cap 220° (inverse)
+  Polygones utilisés pour :
+  - détection roulage / rotation / montée initiale
+  - coloration corridor
+*/
+const RWY04_START = [50.63795, 5.4438];
+const RWY04_END   = [50.6436,  5.452];
+const RWY04_HEADING = 40;
 
+const RWY22_START = RWY04_END;
+const RWY22_END   = RWY04_START;
+const RWY22_HEADING = 220;
+
+/* Polygones larges représentant la bande de piste */
+const RWY04_POLY = [
+  computePoint(RWY04_START, RWY04_HEADING-90, 0.03),
+  computePoint(RWY04_END,   RWY04_HEADING-90, 0.03),
+  computePoint(RWY04_END,   RWY04_HEADING+90, 0.03),
+  computePoint(RWY04_START, RWY04_HEADING+90, 0.03)
+];
+
+const RWY22_POLY = [
+  computePoint(RWY22_START, RWY22_HEADING-90, 0.03),
+  computePoint(RWY22_END,   RWY22_HEADING-90, 0.03),
+  computePoint(RWY22_END,   RWY22_HEADING+90, 0.03),
+  computePoint(RWY22_START, RWY22_HEADING+90, 0.03)
+];
+/* ▴ END SECTION: RUNWAYS ================================================================= */
+
+
+
+/* ▾ SECTION: CORRIDOR BRUIT =============================================================== */
+/*
+  Construction du corridor bruit :
+  - basé sur le heading courant (lastHeading)
+  - largeur progressive (1.5 km → 3.5 km)
+  - longueur 20 km
+*/
 function buildCorridor(h){
-  const start=[EBLG.lat,EBLG.lon], end=computePoint(start,h,20);
-  const lS=computePoint(start,h-90,1.5), rS=computePoint(start,h+90,1.5);
-  const lE=computePoint(end,h-90,3.5), rE=computePoint(end,h+90,3.5);
-  return [lS,lE,rE,rS];
+  const start = [EBLG.lat, EBLG.lon];
+  const end   = computePoint(start, h, 20);
+
+  const lS = computePoint(start, h-90, 1.5);
+  const rS = computePoint(start, h+90, 1.5);
+  const lE = computePoint(end,   h-90, 3.5);
+  const rE = computePoint(end,   h+90, 3.5);
+
+  return [lS, lE, rE, rS];
 }
+/* ▴ END SECTION: CORRIDOR BRUIT =========================================================== */
 
-/* ============================================================
-   TOGGLES
-============================================================ */
-let HEATMAP_ENABLED=true,CORRIDOR_ENABLED=true,TRACKS_ENABLED=true,SONOS_ENABLED=true;
-let corridorLayer=null,heatLayer=null;
 
-/* ============================================================
-   ICÔNE AVION FR24-STYLE (option C)
-============================================================ */
+
+/* ▾ SECTION: TOGGLES (ETATS INTERNES UI) ================================================== */
+/*
+  États internes contrôlant l’affichage :
+  - heatmap
+  - corridor
+  - trajectoires ADS‑B
+  - sonomètres
+*/
+let HEATMAP_ENABLED = true;
+let CORRIDOR_ENABLED = true;
+let TRACKS_ENABLED = true;
+let SONOS_ENABLED = true;
+
+let corridorLayer = null;
+let heatLayer = null;
+/* ▴ END SECTION: TOGGLES ================================================================= */
+
+
+
+/* ▾ SECTION: ICONE AVION FR24-STYLE ======================================================= */
+/*
+  Icône SVG orientable :
+  - rotation = track ADS‑B
+  - couleur = bleu (ARR) / orange (DEP)
+*/
 const AIRCRAFT_ICON = (track, color="#1e3a8a") => L.divIcon({
   html: `
     <svg width="28" height="28" viewBox="0 0 24 24"
          style="transform: rotate(${track}deg);">
-      <path fill="${color}" d="M12 2l2 7h6l-5 4 2 9-5-4-5 4 2-9-5-4h6z"/>
+      <path fill="${color}"
+        d="M12 2l2 7h6l-5 4 2 9-5-4-5 4 2-9-5-4h6z"/>
     </svg>
   `,
   className: "aircraft-icon",
   iconSize: [28, 28],
   iconAnchor: [14, 14]
 });
+/* ▴ END SECTION: ICONE AVION FR24-STYLE =================================================== */
 
-/* ============================================================
-   LOGIQUE ICÔNE AVION
-============================================================ */
+
+
+/* ▾ SECTION: LOGIQUE ICONE AVION ========================================================== */
+/*
+  Détermine la couleur de l’avion :
+  1) Si FIDS connaît le vol → ARR/DEP exact
+  2) Sinon → heuristique basée sur le heading (proximité 40° ou 220°)
+*/
 function normalizeCallsign(t){
-  return t?String(t).toUpperCase().trim().replace(/\s+/g,"").replace(/[^A-Z0-9]/g,"").slice(0,8):"";
+  return t
+    ? String(t).toUpperCase().trim()
+      .replace(/\s+/g,"")
+      .replace(/[^A-Z0-9]/g,"")
+      .slice(0,8)
+    : "";
 }
 
-function planeIconFor(callsign, track) {
+function planeIconFor(callsign, track){
   const n = normalizeCallsign(callsign || "");
   let kind = null;
 
-  if (LAST_FIDS) {
-    const arr = (LAST_FIDS.arrivals || []).find(v => normalizeCallsign(v.flightPax || v.flight || v.callsign) === n);
-    const dep = (LAST_FIDS.departures || []).find(v => normalizeCallsign(v.flightPax || v.flight || v.callsign) === n);
-    if (dep) kind = "DEP";
-    else if (arr) kind = "ARR";
+  /* 1) Matching FIDS */
+  if(LAST_FIDS){
+    const arr = (LAST_FIDS.arrivals||[])
+      .find(v => normalizeCallsign(v.flightPax||v.flight||v.callsign) === n);
+    const dep = (LAST_FIDS.departures||[])
+      .find(v => normalizeCallsign(v.flightPax||v.flight||v.callsign) === n);
+
+    if(dep) kind="DEP";
+    else if(arr) kind="ARR";
   }
 
-  if (!kind) {
-    if (track != null) {
-      const d04 = Math.min(Math.abs(track - 40), 360 - Math.abs(track - 40));
-      const d22 = Math.min(Math.abs(track - 220), 360 - Math.abs(track - 220));
-      kind = (d04 <= HEAD_TOL || d22 <= HEAD_TOL) ? "DEP" : "ARR";
+  /* 2) Heuristique heading */
+  if(!kind){
+    if(track != null){
+      const d04 = Math.min(Math.abs(track-40), 360-Math.abs(track-40));
+      const d22 = Math.min(Math.abs(track-220),360-Math.abs(track-220));
+      kind = (d04<=HEAD_TOL || d22<=HEAD_TOL) ? "DEP" : "ARR";
     } else {
-      kind = "ARR";
+      kind="ARR";
     }
   }
 
-  const color = kind === "DEP" ? "#f97316" : "#2563eb";
-  return AIRCRAFT_ICON(track || 0, color);
+  const color = kind==="DEP" ? "#f97316" : "#2563eb";
+  return AIRCRAFT_ICON(track||0, color);
 }
-
-/* ============================================================
-   ADS‑B
-============================================================ */
-let ADSB_MARKERS={},ADSB_TRACKS={};
-
+/* ▴ END SECTION: LOGIQUE ICONE AVION ====================================================== */
+/* ▾ SECTION: ADS-B FETCH ================================================================= */
+/*
+  Récupération des données ADS‑B :
+  - API OpenSky (ou proxy équivalent)
+  - Format : tableau d’états
+  - Chaque état = [icao24, callsign, ..., lon, lat, baro_alt, velocity, heading, ...]
+*/
 async function fetchADSB(){
-  const u="https://opensky-network.org/api/states/all?lamin=50.3&lomin=5.1&lamax=50.9&lomax=5.8";
-  try{const r=await fetch(u);const j=await r.json();return j.states||[]}catch(e){return[]}
+  try{
+    const r = await fetch("https://opensky-network.org/api/states/all");
+    const j = await r.json();
+    return j.states || [];
+  }catch(e){
+    return [];
+  }
 }
+/* ▴ END SECTION: ADS-B FETCH ============================================================= */
+
+
+
+/* ▾ SECTION: ADS-B MARKERS ================================================================ */
+/*
+  Gestion des marqueurs ADS‑B :
+  - un marker par avion
+  - rotation = heading
+  - couleur = ARR/DEP (via planeIconFor)
+  - suppression des avions disparus
+*/
+let ADSB_MARKERS = {};
 
 function updateADSB(states){
-  states.forEach(s=>{
-    const icao=s[0], cs=(s[1]||"").trim(), lon=s[5], lat=s[6], track=s[10]||0;
-    if(lat==null||lon==null) return;
+  const seen = new Set();
 
-    if(!ADSB_MARKERS[icao]){
-      ADSB_MARKERS[icao]=L.marker([lat,lon],{icon:planeIconFor(cs,track)})
-        .addTo(map)
-        .bindPopup(`ICAO: ${icao}<br>Callsign: ${cs}`);
+  for(const s of states){
+    const cs = (s[1] || "").trim();
+    const lon = s[5], lat = s[6];
+    const track = s[10];
+
+    if(lat == null || lon == null) continue;
+
+    const key = cs || s[0];
+    seen.add(key);
+
+    const icon = planeIconFor(cs, track);
+
+    if(!ADSB_MARKERS[key]){
+      ADSB_MARKERS[key] = L.marker([lat, lon], { icon }).addTo(map);
     }else{
-      ADSB_MARKERS[icao].setLatLng([lat,lon]);
-      ADSB_MARKERS[icao].setIcon(planeIconFor(cs,track));
+      ADSB_MARKERS[key].setLatLng([lat, lon]);
+      ADSB_MARKERS[key].setIcon(icon);
     }
 
-    if(!ADSB_TRACKS[icao]) ADSB_TRACKS[icao]=[];
-    ADSB_TRACKS[icao].push([lat,lon]);
-    if(ADSB_TRACKS[icao].length>40) ADSB_TRACKS[icao].shift();
+    /* Stockage pour matching FIDS */
+    ADSB_BY_CALLSIGN[normalizeCallsign(cs)] = { lat, lon, track };
+  }
 
-    if(ADSB_TRACKS[icao].poly){
-      map.removeLayer(ADSB_TRACKS[icao].poly);
-      ADSB_TRACKS[icao].poly=null;
+  /* Suppression des avions disparus */
+  for(const k in ADSB_MARKERS){
+    if(!seen.has(k)){
+      map.removeLayer(ADSB_MARKERS[k]);
+      delete ADSB_MARKERS[k];
     }
+  }
 
-    if(TRACKS_ENABLED){
-      ADSB_TRACKS[icao].poly=L.polyline(ADSB_TRACKS[icao],{color:"#fbbf24",weight:2}).addTo(map);
+  if(TRACKS_ENABLED) updateTracks(states);
+}
+/* ▴ END SECTION: ADS-B MARKERS ============================================================ */
+
+
+
+/* ▾ SECTION: ADS-B TRACKS (POLYLINES) ===================================================== */
+/*
+  Trajectoires :
+  - un polyline par avion
+  - stockage limité (max 40 points)
+  - effacement si TRACKS_ENABLED = false
+*/
+let TRACK_HISTORY = {};
+let TRACK_LINES = {};
+
+function updateTracks(states){
+  for(const s of states){
+    const cs = (s[1] || "").trim();
+    const lon = s[5], lat = s[6];
+    if(lat == null || lon == null) continue;
+
+    const key = cs || s[0];
+
+    if(!TRACK_HISTORY[key]) TRACK_HISTORY[key] = [];
+    TRACK_HISTORY[key].push([lat, lon]);
+
+    if(TRACK_HISTORY[key].length > 40)
+      TRACK_HISTORY[key].shift();
+
+    if(!TRACK_LINES[key]){
+      TRACK_LINES[key] = L.polyline(TRACK_HISTORY[key], {
+        color: "#6b7280",
+        weight: 2,
+        opacity: 0.7
+      }).addTo(map);
+    }else{
+      TRACK_LINES[key].setLatLngs(TRACK_HISTORY[key]);
     }
-
-    const norm=normalizeCallsign(cs);
-    if(norm){
-      ADSB_BY_CALLSIGN[norm]={icao,marker:ADSB_MARKERS[icao]};
-      ADSB_MARKERS[icao].off("click");
-      ADSB_MARKERS[icao].on("click",()=>{
-        if(!LAST_FIDS) return;
-        const all=[...(LAST_FIDS.arrivals||[]),...(LAST_FIDS.departures||[])];
-        const match=all.find(v=>normalizeCallsign(v.flightPax||v.flight||v.callsign)===norm);
-        if(match) showFlightDetail(match);
-      });
-    }
-  });
-
-  detectTakeoff04(states);
-  detectTakeoff22(states);
-  updateF017Icon();
-  annotateFlightsWithADSB();
+  }
 }
 
 function hideAllTracks(){
-  Object.values(ADSB_TRACKS).forEach(t=>{
-    if(t.poly){map.removeLayer(t.poly);t.poly=null}
-  });
+  for(const k in TRACK_LINES){
+    map.removeLayer(TRACK_LINES[k]);
+  }
+  TRACK_LINES = {};
+  TRACK_HISTORY = {};
 }
+/* ▴ END SECTION: ADS-B TRACKS ============================================================= */
 
-function annotateFlightsWithADSB(){
-  try{
-    const el=document.getElementById("flights-list"); if(!el) return;
-    el.querySelectorAll(".flight-row").forEach(row=>{
-      const norm=row.getAttribute("data-normcallsign");
-      const badge=row.querySelector(".adsb-badge");
-      const ok=norm && !!ADSB_BY_CALLSIGN[norm];
-      if(badge){
-        badge.textContent=ok?"ADS‑B OK":"—";
-        badge.style.background=ok?"#10b981":"#d1d5db";
-        badge.style.color=ok?"#fff":"#111";
-      }
-    });
-  }catch(e){}
-}
 
-function focusAircraftByCallsign(norm,v){
-  const hit=norm?ADSB_BY_CALLSIGN[norm]:null;
 
-  if(hit&&hit.marker){
-    const mk=hit.marker,ll=mk.getLatLng();
-    map.setView(ll,13); mk.openPopup();
-    const ping=L.circle(ll,{radius:150,color:"#22c55e",weight:2,fillOpacity:.1});
-    ping.addTo(map); setTimeout(()=>map.removeLayer(ping),2500);
-  }else{
+/* ▾ SECTION: MATCHING FIDS ↔ ADS-B ======================================================== */
+/*
+  Lorsqu’un vol est cliqué dans la liste FIDS :
+  - focus sur l’avion correspondant (si présent ADS‑B)
+  - sinon focus sur un point par défaut
+*/
+function focusAircraftByCallsign(norm, v){
+  if(!norm) return;
+
+  const a = ADSB_BY_CALLSIGN[norm];
+  if(a){
+    map.setView([a.lat, a.lon], 13);
+    return;
+  }
+
+  /* fallback : position générique */
+  if(v){
     highlightFlightOnMap(v);
   }
-
-  if(v && v.runway){
-    const runway=v.runway.replace(/[^0-9]/g,"");
-    const phase=v.direction==="Arrivals"?"ARR":"DEP";
-    updateSonoColors(runway,phase);
-  }
 }
+/* ▴ END SECTION: MATCHING FIDS ↔ ADS-B ==================================================== */
 
-/* ============================================================
-   METAR
-============================================================ */
+
+/* ▾ SECTION: METAR ======================================================================= */
+/*
+  Récupération METAR via AVWX :
+  - format JSON
+  - extraction vent / température / raw METAR
+*/
 async function fetchMetar(){
-  const u=`https://avwx.rest/api/metar/EBLG?token=${AVWX_TOKEN}&format=json`;
-  const r=await fetch(u);
+  const u = `https://avwx.rest/api/metar/EBLG?token=${AVWX_TOKEN}&format=json`;
+  const r = await fetch(u);
   return r.json();
 }
 
 function updateMetarUI(m){
   try{
-    document.getElementById("meteo-summary").textContent=
+    document.getElementById("meteo-summary").textContent =
       `Vent ${m.wind_direction.value}° / ${m.wind_speed.value} kt – T° ${m.temperature.value}°C`;
-    document.getElementById("meteo-raw").textContent=m.raw;
+    document.getElementById("meteo-raw").textContent = m.raw;
   }catch(e){}
 }
 
 function formatLocal(t){
-  return t?new Date(t).toLocaleTimeString("fr-BE",{hour:"2-digit",minute:"2-digit",hour12:false}):"-";
+  return t
+    ? new Date(t).toLocaleTimeString("fr-BE",{hour:"2-digit",minute:"2-digit",hour12:false})
+    : "-";
 }
+/* ▴ END SECTION: METAR =================================================================== */
 
-/* ============================================================
-   FIDS
-============================================================ */
+
+
+/* ▾ SECTION: FIDS FETCH ================================================================== */
+/*
+  Récupération FIDS via proxy Render :
+  - arrivals + departures
+  - robustesse : si erreur → tableau vide
+*/
 async function fetchFIDS(){
-  const arr=await fetch(URL_ARR).then(r=>r.json()).catch(()=>[]);
-  const dep=await fetch(URL_DEP).then(r=>r.json()).catch(()=>[]);
-  return {arrivals:Array.isArray(arr)?arr:[],departures:Array.isArray(dep)?dep:[]};
+  const arr = await fetch(URL_ARR).then(r=>r.json()).catch(()=>[]);
+  const dep = await fetch(URL_DEP).then(r=>r.json()).catch(()=>[]);
+  return {
+    arrivals: Array.isArray(arr) ? arr : [],
+    departures: Array.isArray(dep) ? dep : []
+  };
 }
+/* ▴ END SECTION: FIDS FETCH =============================================================== */
 
-function setFilter(f){FLT_FILTER=f;refresh()}
+
+
+/* ▾ SECTION: FIDS UI ===================================================================== */
+/*
+  Mise à jour liste des vols :
+  - tri par heure
+  - filtre ARR / DEP / ALL
+  - badge ADS‑B si matching callsign
+*/
+function setFilter(f){ FLT_FILTER=f; refresh(); }
 
 function updateFlightsUI(f){
-  LAST_FIDS=f;
-  const el=document.getElementById("flights-list");
-  let all=[...f.arrivals,...f.departures];
+  LAST_FIDS = f;
+  const el = document.getElementById("flights-list");
 
-  if(FLT_FILTER==="ARR") all=all.filter(v=>v.direction==="Arrivals");
-  if(FLT_FILTER==="DEP") all=all.filter(v=>v.direction==="Departures");
+  let all = [...f.arrivals, ...f.departures];
+
+  if(FLT_FILTER==="ARR") all = all.filter(v=>v.direction==="Arrivals");
+  if(FLT_FILTER==="DEP") all = all.filter(v=>v.direction==="Departures");
 
   all.sort((a,b)=>new Date(a.sTx)-new Date(b.sTx));
-  all=all.slice(0,10);
+  all = all.slice(0,10);
 
-  if(!all.length){el.textContent="Aucun vol.";return}
+  if(!all.length){
+    el.textContent="Aucun vol.";
+    return;
+  }
 
-  el.innerHTML=all.map(v=>{
-    const raw=v.flightPax||v.flight||v.callsign||"", norm=normalizeCallsign(raw);
-    const has=norm && !!ADSB_BY_CALLSIGN[norm];
-    const rwy=v.runway||"?";
+  el.innerHTML = all.map(v=>{
+    const raw = v.flightPax || v.flight || v.callsign || "";
+    const norm = normalizeCallsign(raw);
+    const has = norm && !!ADSB_BY_CALLSIGN[norm];
+    const rwy = v.runway || "?";
 
-    return `<div class="flight-row" data-id="${v.id}" data-normcallsign="${norm}">
-      ${v.direction==="Arrivals"?"ARR":"DEP"} ${raw} (${v.aircraftType}) – RWY ${rwy}
-      <span class="tag adsb-badge" style="margin-left:6px;${has?'background:#10b981;color:#fff;':''}">
-        ${has?'ADS‑B OK':'—'}
-      </span><br>
-      ${formatLocal(v.sTx)} → ${formatLocal(v.eTx)}
-    </div>`;
+    return `
+      <div class="flight-row" data-id="${v.id}" data-normcallsign="${norm}">
+        ${v.direction==="Arrivals"?"ARR":"DEP"} ${raw} (${v.aircraftType}) – RWY ${rwy}
+        <span class="tag adsb-badge" style="margin-left:6px;${has?'background:#10b981;color:#fff;':''}">
+          ${has?'ADS‑B OK':'—'}
+        </span><br>
+        ${formatLocal(v.sTx)} → ${formatLocal(v.eTx)}
+      </div>
+    `;
   }).join("");
 
+  /* Click handler */
   el.querySelectorAll(".flight-row").forEach(row=>{
-    row.onclick=()=>{
-      const id=row.getAttribute("data-id"), norm=row.getAttribute("data-normcallsign");
-      const v=all.find(x=>x.id===id);
+    row.onclick = ()=>{
+      const id = row.getAttribute("data-id");
+      const norm = row.getAttribute("data-normcallsign");
+      const v = all.find(x=>x.id===id);
       if(v) showFlightDetail(v);
-      focusAircraftByCallsign(norm,v);
+      focusAircraftByCallsign(norm, v);
     };
   });
-
-  annotateFlightsWithADSB();
 }
+/* ▴ END SECTION: FIDS UI ================================================================= */
 
+
+
+/* ▾ SECTION: FIDS DETAIL ================================================================= */
+/*
+  Affichage du détail d’un vol sélectionné
+*/
 function showFlightDetail(v){
-  document.getElementById("flight-detail").innerHTML=
-  `<strong>${v.flightPax}</strong> – ${v.aircraftType}<br>
-   ${v.origin} → ${v.destination}<br>
-   Piste : ${v.runway||"-"}<br>
-   STD/STA : ${formatLocal(v.sTx)}<br>
-   ETD/ETA : ${formatLocal(v.eTx)}<br>
-   ATD/ATA : ${formatLocal(v.aTx)}<br>
-   Stand : ${v.stand||"-"}<br>
-   Opérateur : ${v.operator||"-"}`;
+  document.getElementById("flight-detail").innerHTML = `
+    <strong>${v.flightPax}</strong> – ${v.aircraftType}<br>
+    ${v.origin} → ${v.destination}<br>
+    Piste : ${v.runway||"-"}<br>
+    STD/STA : ${formatLocal(v.sTx)}<br>
+    ETD/ETA : ${formatLocal(v.eTx)}<br>
+    ATD/ATA : ${formatLocal(v.aTx)}<br>
+    Stand : ${v.stand||"-"}<br>
+    Opérateur : ${v.operator||"-"}
+  `;
 }
+/* ▴ END SECTION: FIDS DETAIL ============================================================= */
 
-function highlightFlightOnMap(v){
-  if(!v) return;
-  const pos=[EBLG.lat+0.005,EBLG.lon+0.005];
-  if(window.flightMarker) map.removeLayer(window.flightMarker);
-  window.flightMarker=L.circleMarker(pos,{radius:10,color:"#f97316",fillColor:"#f97316",fillOpacity:.9})
-    .addTo(map).bindPopup(`Vol ${v.flightPax}`);
-  map.setView(pos,13);
-}
 
-/* ============================================================
-   RUNWAY / COULOIR / HEATMAP / SONO COLORS
-============================================================ */
+
+/* ▾ SECTION: RUNWAY LOGIC (FIDS + METAR) ================================================= */
+/*
+  Extraction piste :
+  - priorité FIDS (si runway renseignée)
+  - fallback METAR (heading vent → piste la plus alignée)
+*/
 function extractRunway(f){
-  const all=[...f.arrivals,...f.departures];
-  const r=all.find(v=>v.runway);
+  const all = [...f.arrivals, ...f.departures];
+  const r = all.find(v=>v.runway);
   if(!r) return null;
-  const name=r.runway.replace(/[^0-9]/g,"");
-  return EBLG.runways.find(x=>x.name===name)||null;
+
+  const name = r.runway.replace(/[^0-9]/g,"");
+  return EBLG.runways.find(x=>x.name===name) || null;
 }
 
 function runwayFromMetar(m){
-  if(!m||!m.wind_direction||m.wind_direction.value==null) return null;
-  const wd=m.wind_direction.value;
-  let best=null,bestDiff=999;
+  if(!m || !m.wind_direction || m.wind_direction.value==null) return null;
+
+  const wd = m.wind_direction.value;
+  let best=null, bestDiff=999;
 
   EBLG.runways.forEach(rw=>{
-    const d=Math.min(Math.abs(wd-rw.heading),360-Math.abs(wd-rw.heading));
-    if(d<bestDiff){bestDiff=d;best=rw}
+    const d = Math.min(Math.abs(wd-rw.heading), 360-Math.abs(wd-rw.heading));
+    if(d < bestDiff){
+      bestDiff = d;
+      best = rw;
+    }
   });
 
   return best;
 }
+/* ▴ END SECTION: RUNWAY LOGIC ============================================================ */
 
-/* ============================================================
-   COLORATION SONOMÈTRES (MATRICE OFFICIELLE)
-============================================================ */
-function updateSonoColors(runway, phase) {
-  SONO_MARKERS.forEach(s => {
+
+
+/* ▾ SECTION: SONOMETRES COLORATION ======================================================== */
+/*
+  Coloration selon matrice SONO_RULES :
+  - RWY 22 : simple ARR/DEP
+  - RWY 04 : logique verte/rouge
+*/
+function updateSonoColors(runway, phase){
+  SONO_MARKERS.forEach(s=>{
     let color = COLOR.gray;
 
-    if (runway === "22") {
-      if (SONO_RULES["22"][phase].includes(s.id)) {
+    if(runway==="22"){
+      if(SONO_RULES["22"][phase].includes(s.id))
         color = COLOR.green;
-      }
     }
 
-    if (runway === "04") {
-      if (phase === "ARR") {
-        if (SONO_RULES["04"].ARR_GREEN.includes(s.id)) color = COLOR.green;
-        if (SONO_RULES["04"].ARR_RED.includes(s.id))   color = COLOR.red;
+    if(runway==="04"){
+      if(phase==="ARR"){
+        if(SONO_RULES["04"].ARR_GREEN.includes(s.id)) color = COLOR.green;
+        if(SONO_RULES["04"].ARR_RED.includes(s.id))   color = COLOR.red;
       }
-      if (phase === "DEP") {
-        if (SONO_RULES["04"].DEP_GREEN.includes(s.id)) color = COLOR.green;
-        if (SONO_RULES["04"].DEP_RED.includes(s.id))   color = COLOR.red;
+      if(phase==="DEP"){
+        if(SONO_RULES["04"].DEP_GREEN.includes(s.id)) color = COLOR.green;
+        if(SONO_RULES["04"].DEP_RED.includes(s.id))   color = COLOR.red;
       }
     }
 
     s.marker.setStyle({ color, fillColor: color, fillOpacity: 1 });
   });
 }
+/* ▴ END SECTION: SONOMETRES COLORATION =================================================== */
 
-/* ============================================================
-   HEATMAP (basée sur computeImpacted)
-============================================================ */
+
+
+/* ▾ SECTION: HEATMAP ====================================================================== */
+/*
+  computeImpacted :
+  - sélectionne les sonomètres dans le corridor étendu
+  updateHeatmap :
+  - applique la heatmap Leaflet
+*/
 function computeImpacted(h){
-  const poly=h<180?RWY04_EXT_POLY:RWY22_EXT_POLY;
-  return SONO_MARKERS.filter(s=>pointInPolygon([s.lat,s.lon],poly));
+  const poly = h < 180 ? RWY04_EXT_POLY : RWY22_EXT_POLY;
+  return SONO_MARKERS.filter(s=>pointInPolygon([s.lat,s.lon], poly));
 }
 
 function updateHeatmap(list){
-  if(heatLayer){map.removeLayer(heatLayer);heatLayer=null}
+  if(heatLayer){
+    map.removeLayer(heatLayer);
+    heatLayer=null;
+  }
   if(!HEATMAP_ENABLED) return;
-  if(!list||!list.length) return;
-  heatLayer=L.heatLayer(list.map(s=>[s.lat,s.lon,0.7]),{radius:35,blur:25}).addTo(map);
-}
+  if(!list || !list.length) return;
 
-/* ============================================================
-   CORRIDOR (réactivé)
-============================================================ */
+  heatLayer = L.heatLayer(
+    list.map(s=>[s.lat,s.lon,0.7]),
+    { radius:35, blur:25 }
+  ).addTo(map);
+}
+/* ▴ END SECTION: HEATMAP ================================================================= */
+
+
+
+/* ▾ SECTION: CORRIDOR UPDATE =============================================================== */
+/*
+  Mise à jour du corridor bruit :
+  - recalculé à chaque refresh (heading lissé)
+*/
 function updateCorridor(){
   if(!CORRIDOR_ENABLED) return;
-  if(corridorLayer){ map.removeLayer(corridorLayer); corridorLayer=null; }
+
+  if(corridorLayer){
+    map.removeLayer(corridorLayer);
+    corridorLayer=null;
+  }
 
   const poly = buildCorridor(lastHeading);
+
   corridorLayer = L.polygon(poly, {
     color: "#f97316",
     weight: 2,
@@ -559,10 +937,14 @@ function updateCorridor(){
     fillOpacity: 0.3
   }).addTo(map);
 }
+/* ▴ END SECTION: CORRIDOR UPDATE ========================================================== */
 
-/* ============================================================
-   DIAPASON – SignalR + LED
-============================================================ */
+/* ▾ SECTION: DIAPASON (SIGNALR + CHARTS) ================================================= */
+/*
+  Connexion temps réel au hub Diapason :
+  - réception LAeq par sonomètre
+  - mise à jour UI + historique + chart.js
+*/
 const HUB_URL="https://eblg.aerovision.cloud/EBLG/signalr-noise";
 const SENSOR_MAP={
   1:"F001",2:"F002",3:"F003",4:"F004",5:"F005",6:"F006",7:"F007",8:"F008",9:"F009",
@@ -661,10 +1043,18 @@ function updateHistoryChart(fId){
     CHARTS[fId].update();
   }
 }
+/* ▴ END SECTION: DIAPASON ================================================================ */
 
-/* ============================================================
-   ALERTES METEO
-============================================================ */
+
+
+/* ▾ SECTION: ALERTES METEO =============================================================== */
+/*
+  Génération d’alertes :
+  - vent fort
+  - rafales
+  - vent arrière
+  - changement de piste
+*/
 function computeAlerts(m,rw){
   const a=[];
   if(m?.wind_speed?.value > 25) a.push("Vent fort (>25 kt)");
@@ -685,10 +1075,18 @@ function computeAlerts(m,rw){
     ? a.map(x=>`<div>⚠️ ${x}</div>`).join("")
     : "Aucune alerte.";
 }
+/* ▴ END SECTION: ALERTES METEO =========================================================== */
 
-/* ============================================================
-   DÉTECTION DÉCOLLAGES 04 & 22 + VR + F017
-============================================================ */
+
+
+/* ▾ SECTION: DETECTION DECOLLAGES (RWY 04 & 22) ========================================== */
+/*
+  Détection décollage :
+  - roulage (ROLL)
+  - rotation (VR)
+  - montée initiale (CLIMB)
+  - survol F017
+*/
 const MS2KT=1.943844, M2FT=3.28084, HEADING_TOL=HEAD_TOL;
 const ROLL_GS_KT=70, VR_GS_KT=110, CLIMB_MAX_ALT_FT=200, CENTERLINE_MAX_OFFSET_KM=0.5;
 
@@ -895,10 +1293,11 @@ function detectTakeoff22(states){
     IS_TAKEOFF_22=false;
   }
 }
+/* ▴ END SECTION: DETECTION DECOLLAGES ==================================================== */
 
-/* ============================================================
-   DÉMARRAGE DIAPASON + BOUTON RECONNECT
-============================================================ */
+
+
+/* ▾ SECTION: DIAPASON RECONNECT BUTTON ==================================================== */
 startDiapason();
 
 (function(){
@@ -910,10 +1309,11 @@ startDiapason();
     await startDiapason();
   };
 })();
+/* ▴ END SECTION: DIAPASON RECONNECT ======================================================= */
 
-/* ============================================================
-   VISIBILITÉ SONOMÈTRES
-============================================================ */
+
+
+/* ▾ SECTION: TOGGLES UI ================================================================== */
 function updateSonometersVisibility(){
   SONO_MARKERS.forEach(s=>{
     if(SONOS_ENABLED){
@@ -924,16 +1324,16 @@ function updateSonometersVisibility(){
   });
 }
 
-/* ============================================================
-   TOGGLES UI + RESET
-============================================================ */
 (function(){
   const btnHeat=document.getElementById("toggle-heatmap");
   if(btnHeat){
     btnHeat.onclick=()=>{
       HEATMAP_ENABLED=!HEATMAP_ENABLED;
       btnHeat.textContent=`Heatmap : ${HEATMAP_ENABLED?"ON":"OFF"}`;
-      if(!HEATMAP_ENABLED && heatLayer){ map.removeLayer(heatLayer); heatLayer=null; }
+      if(!HEATMAP_ENABLED && heatLayer){
+        map.removeLayer(heatLayer);
+        heatLayer=null;
+      }
     };
   }
 
@@ -942,7 +1342,10 @@ function updateSonometersVisibility(){
     btnCorr.onclick=()=>{
       CORRIDOR_ENABLED=!CORRIDOR_ENABLED;
       btnCorr.textContent=`Corridor : ${CORRIDOR_ENABLED?"ON":"OFF"}`;
-      if(!CORRIDOR_ENABLED && corridorLayer){ map.removeLayer(corridorLayer); corridorLayer=null; }
+      if(!CORRIDOR_ENABLED && corridorLayer){
+        map.removeLayer(corridorLayer);
+        corridorLayer=null;
+      }
     };
   }
 
@@ -967,9 +1370,18 @@ function updateSonometersVisibility(){
   function resetMap(){
     map.setView([EBLG.lat,EBLG.lon],11);
     map.closePopup();
-    if(window.flightMarker){ map.removeLayer(window.flightMarker); window.flightMarker=null; }
-    if(!HEATMAP_ENABLED && heatLayer){ map.removeLayer(heatLayer); heatLayer=null; }
-    if(!CORRIDOR_ENABLED && corridorLayer){ map.removeLayer(corridorLayer); corridorLayer=null; }
+    if(window.flightMarker){
+      map.removeLayer(window.flightMarker);
+      window.flightMarker=null;
+    }
+    if(!HEATMAP_ENABLED && heatLayer){
+      map.removeLayer(heatLayer);
+      heatLayer=null;
+    }
+    if(!CORRIDOR_ENABLED && corridorLayer){
+      map.removeLayer(corridorLayer);
+      corridorLayer=null;
+    }
     if(!TRACKS_ENABLED) hideAllTracks();
     updateSonometersVisibility();
   }
@@ -977,55 +1389,76 @@ function updateSonometersVisibility(){
   const btnReset=document.getElementById("reset-map");
   if(btnReset) btnReset.onclick=()=>resetMap();
 })();
+/* ▴ END SECTION: TOGGLES UI =============================================================== */
 
-/* ============================================================
-   MAIN LOOP
-============================================================ */
+
+
+/* ▾ SECTION: MAIN LOOP (REFRESH) ========================================================== */
+/*
+  Rafraîchissement global :
+  - METAR
+  - FIDS
+  - piste (FIDS + METAR)
+  - coloration sonomètres
+  - heatmap
+  - corridor
+  - alertes
+  - ADS‑B
+  - F017 icon
+*/
 async function refresh(){
-  const metar=await fetchMetar().catch(()=>null);
+  const metar = await fetchMetar().catch(()=>null);
   if(metar) updateMetarUI(metar);
 
-  const fids=await fetchFIDS().catch(()=>({arrivals:[],departures:[]}));
+  const fids = await fetchFIDS().catch(()=>({arrivals:[],departures:[]}));
   updateFlightsUI(fids);
 
-  const rwF=extractRunway(fids);
-  const rwM=metar?runwayFromMetar(metar):null;
-  const rw=rwF||rwM;
+  const rwF = extractRunway(fids);
+  const rwM = runwayFromMetar(metar);
+  const rw  = rwF || rwM;
 
-  if(!rw){
-    const el=document.getElementById("runway-info");
-    if(el) el.textContent="Piste indéterminée.";
+  if(rw){
+    lastHeading = rw.heading;
+    document.getElementById("runway-info").textContent =
+      `Piste active : ${rw.name} (cap ${rw.heading}°)`;
   }else{
-    const el=document.getElementById("runway-info");
-    if(el) el.textContent=`Piste ${rw.name} – cap ${rw.heading}°`;
-
-    if(lastHeading==null) lastHeading=rw.heading;
-    lastHeading+=(rw.heading-lastHeading)*.1;
-
-    updateSonoColors(rw.name,"ARR");
-
-    const impacted=computeImpacted(lastHeading);
-    updateHeatmap(impacted);
-
-    updateCorridor();
-
-    const box=document.getElementById("sonos-impacted");
-    if(box) box.innerHTML=impacted.length
-      ? impacted.map(s=>`<span class="tag impacted">${s.id}</span>`).join(" ")
-      : "Aucun impacté";
-
-    computeAlerts(metar||{},rw);
+    document.getElementById("runway-info").textContent = "Piste active : inconnue";
   }
 
-  const adsb=await fetchADSB().catch(()=>[]);
+  const phase = FLT_FILTER==="ARR" ? "ARR" : "DEP";
+  if(rw) updateSonoColors(rw.name, phase);
+
+  const impacted = rw ? computeImpacted(rw.heading) : [];
+  updateHeatmap(impacted);
+
+  if(rw) updateCorridor();
+
+  computeAlerts(metar, rw);
+
+  const adsb = await fetchADSB().catch(()=>[]);
   updateADSB(adsb);
+
+  detectTakeoff04(adsb);
+  detectTakeoff22(adsb);
+
   updateF017Icon();
 }
+/* ▴ END SECTION: MAIN LOOP ================================================================ */
 
+
+
+/* ▾ SECTION: AUTO-REFRESH ================================================================= */
+/*
+  Rafraîchissement toutes les 5 secondes
+*/
+setInterval(refresh, 5000);
 refresh();
-setInterval(refresh,60_000);
+/* ▴ END SECTION: AUTO-REFRESH ============================================================= */
+
+
 
 </script>
+<!-- ▴ END SECTION: JAVASCRIPT ROOT ======================================================== -->
 
 </body>
 </html>
