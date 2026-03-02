@@ -157,8 +157,12 @@ const COLOR={green:"#10b981",red:"#ef4444",gray:"#6b7280"};
 const map=L.map("map").setView([EBLG.lat,EBLG.lon],11);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-L.circleMarker([EBLG.lat,EBLG.lon],{radius:7,color:"#FFFFFF",fillColor:"#2563eb",fillOpacity:1})
-  .addTo(map).bindPopup("EBLG – Liège Airport");
+L.circleMarker([EBLG.lat,EBLG.lon],{
+  radius:7,
+  color:"#2563eb",
+  fillColor:"#2563eb",
+  fillOpacity:1
+}).addTo(map).bindPopup("EBLG – Liège Airport");
 
 const SONO_MARKERS=SONOS.map(s=>{
   const m=L.circleMarker([s.lat,s.lon],{
@@ -224,17 +228,12 @@ const RWY22_POLY=[
  computePoint(RWY22_END,RWY22_HEADING+90,0.03),
  computePoint(RWY22_START,RWY22_HEADING+90,0.03)];
 
-function buildExtendedCenterlinePoly(start,hd,w,l){
-  const end=computePoint(start,hd,l);
-  return[
-    computePoint(start,hd-90,w),
-    computePoint(end,hd-90,w),
-    computePoint(end,hd+90,w),
-    computePoint(start,hd+90,w)];
+function buildCorridor(h){
+  const start=[EBLG.lat,EBLG.lon], end=computePoint(start,h,20);
+  const lS=computePoint(start,h-90,1.5), rS=computePoint(start,h+90,1.5);
+  const lE=computePoint(end,h-90,3.5), rE=computePoint(end,h+90,3.5);
+  return [lS,lE,rE,rS];
 }
-
-const RWY04_EXT_POLY=buildExtendedCenterlinePoly(RWY04_END,RWY04_HEADING,0.5,6);
-const RWY22_EXT_POLY=buildExtendedCenterlinePoly(RWY22_END,RWY22_HEADING,0.5,6);
 
 /* ============================================================
    TOGGLES
@@ -243,66 +242,19 @@ let HEATMAP_ENABLED=true,CORRIDOR_ENABLED=true,TRACKS_ENABLED=true,SONOS_ENABLED
 let corridorLayer=null,heatLayer=null;
 
 /* ============================================================
-   ICÔNES AVION
+   ICÔNE AVION FR24-STYLE (option C)
 ============================================================ */
-const HEAD_TOL=15;
-  
-const AIRCRAFT_ICON = (track, color) => L.divIcon({
+const AIRCRAFT_ICON = (track, color="#1e3a8a") => L.divIcon({
   html: `
-    <svg width="32" height="32" viewBox="0 0 24 24"
+    <svg width="28" height="28" viewBox="0 0 24 24"
          style="transform: rotate(${track}deg);">
-      <path fill="${color}" d="M2.5 19l8.5-7-8.5-7v5l6 2-6 2zM11 22l4-20h-2l-4 20h2zm5.5-3l6-2-6-2 6-2V5l-8.5 7 8.5 7v-5z"/>
+      <path fill="${color}" d="M12 2l2 7h6l-5 4 2 9-5-4-5 4 2-9-5-4h6z"/>
     </svg>
   `,
   className: "aircraft-icon",
-  iconSize: [32, 32],
-  iconAnchor: [16, 16]
+  iconSize: [28, 28],
+  iconAnchor: [14, 14]
 });
-
-const PLANE_DEP=t=>L.divIcon({
-  html:`<svg width="28" height="28" viewBox="0 0 24 24" style="transform:rotate(${t}deg)"><path fill="#f97316" d="M2.5 19l8.5-7-8.5-7v5l6 2-6 2zM11 22l4-20h-2l-4 20h2zm5.5-3l6-2-6-2 6-2V5l-8.5 7 8.5 7v-5z"/></svg>`,
-  className:"plane-icon",iconSize:[28,28],iconAnchor:[14,14]
-});
-
-const PLANE_ARR=t=>L.divIcon({
-  html:`<svg width="28" height="28" viewBox="0 0 24 24" style="transform:rotate(${t}deg)"><path fill="#2563eb" d="M2.5 19l8.5-7-8.5-7v5l6 2-6 2zM11 22l4-20h-2l-4 20h2zm5.5-3l6-2-6-2 6-2V5l-8.5 7 8.5 7v-5z"/></svg>`,
-  className:"plane-icon",iconSize:[28,28],iconAnchor:[14,14]
-});
-
-/* ============================================================
-   LÉGENDE
-============================================================ */
-(function(){
-  const c=map.getContainer(),box=document.createElement("div");
-  box.id="legend";
-  box.style="position:absolute;bottom:20px;left:20px;background:#fff;padding:10px 14px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.25);font-size:13px;z-index:9999;min-width:220px";
-  box.innerHTML=
-  '<div style="font-weight:600;margin-bottom:6px">Légende</div>'+
-  '<div style="display:flex;align-items:center;gap:6px;margin:4px 0">'+
-    '<svg width="22" height="22" viewBox="0 0 24 24" style="transform:rotate(40deg)"><path fill="#f97316" d="M2.5 19l8.5-7-8.5-7v5l6 2-6 2zM11 22l4-20h-2l-4 20h2zm5.5-3l6-2-6-2 6-2V5l-8.5 7 8.5 7v-5z"/></svg>'+
-    '<span>Avion (départ)</span></div>'+
-  '<div style="display:flex;align-items:center;gap:6px;margin:4px 0">'+
-    '<svg width="22" height="22" viewBox="0 0 24 24" style="transform:rotate(220deg)"><path fill="#2563eb" d="M2.5 19l8.5-7-8.5-7v5l6 2-6 2zM11 22l4-20h-2l-4 20h2zm5.5-3l6-2-6-2 6-2V5l-8.5 7 8.5 7v-5z"/></svg>'+
-    '<span>Avion (arrivée)</span></div>'+
-  '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'+
-    '<span style="width:12px;height:12px;border-radius:50%;display:inline-block;background:#6b7280"></span><span>Sonomètre (normal)</span></div>'+
-  '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'+
-    '<span style="width:12px;height:12px;border-radius:50%;display:inline-block;background:#ef4444"></span><span>Sonomètre rouge</span></div>'+
-  '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'+
-    '<span style="width:12px;height:12px;border-radius:50%;display:inline-block;background:#10b981"></span><span>Sonomètre vert</span></div>'+
-  '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'+
-    '<span style="width:20px;height:10px;border:2px solid #f97316;background:rgba(249,115,22,.15);display:inline-block"></span><span>Couloir bruit</span></div>'+
-  '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'+
-    '<span style="font-size:18px">✈️⬆️</span><span>F017 pendant décollage</span></div>'+
-  '<div style="display:flex;align-items:center;gap:8px;margin:4px 0">'+
-    '<span style="width:24px;height:2px;background:#fbbf24;display:inline-block"></span><span>Trajectoire ADS‑B</span></div>'+
-  '<hr style="border:none;border-top:1px solid #e5e7eb;margin:8px 0">'+
-  '<div style="display:flex;align-items:center;gap:8px;justify-content:space-between">'+
-    '<div style="display:flex;align-items:center;gap:6px"><span id="dia-led" style="width:10px;height:10px;border-radius:50%;background:#ef4444;display:inline-block"></span><span id="dia-text">Diapason : déconnecté</span></div>'+
-    '<button id="dia-reconnect" style="padding:4px 8px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;cursor:pointer">Reconnecter</button>'+
-  '</div>';
-  c.appendChild(box);
-})();
 
 /* ============================================================
    LOGIQUE ICÔNE AVION
@@ -335,7 +287,6 @@ function planeIconFor(callsign, track) {
   const color = kind === "DEP" ? "#f97316" : "#2563eb";
   return AIRCRAFT_ICON(track || 0, color);
 }
-
 
 /* ============================================================
    ADS‑B
@@ -550,13 +501,6 @@ function runwayFromMetar(m){
   return best;
 }
 
-function buildCorridor(h){
-  const start=[EBLG.lat,EBLG.lon], end=computePoint(start,h,20);
-  const lS=computePoint(start,h-90,1.5), rS=computePoint(start,h+90,1.5);
-  const lE=computePoint(end,h-90,3.5), rE=computePoint(end,h+90,3.5);
-  return [lS,lE,rE,rS];
-}
-
 /* ============================================================
    COLORATION SONOMÈTRES (MATRICE OFFICIELLE)
 ============================================================ */
@@ -598,6 +542,22 @@ function updateHeatmap(list){
   if(!HEATMAP_ENABLED) return;
   if(!list||!list.length) return;
   heatLayer=L.heatLayer(list.map(s=>[s.lat,s.lon,0.7]),{radius:35,blur:25}).addTo(map);
+}
+
+/* ============================================================
+   CORRIDOR (réactivé)
+============================================================ */
+function updateCorridor(){
+  if(!CORRIDOR_ENABLED) return;
+  if(corridorLayer){ map.removeLayer(corridorLayer); corridorLayer=null; }
+
+  const poly = buildCorridor(lastHeading);
+  corridorLayer = L.polygon(poly, {
+    color: "#f97316",
+    weight: 2,
+    fillColor: "rgba(249,115,22,0.15)",
+    fillOpacity: 0.3
+  }).addTo(map);
 }
 
 /* ============================================================
@@ -1042,22 +1002,12 @@ async function refresh(){
     if(lastHeading==null) lastHeading=rw.heading;
     lastHeading+=(rw.heading-lastHeading)*.1;
 
-    // Corridor bruit (selon heading)
-if (CORRIDOR_ENABLED) {
-  const poly = buildCorridor(lastHeading);
-  if (corridorLayer) map.removeLayer(corridorLayer);
-  corridorLayer = L.polygon(poly, {
-    color: "#f97316",
-    weight: 2,
-    fillColor: "rgba(249,115,22,0.15)",
-    fillOpacity: 0.3
-  }).addTo(map);
-}
-
     updateSonoColors(rw.name,"ARR");
 
     const impacted=computeImpacted(lastHeading);
     updateHeatmap(impacted);
+
+    updateCorridor();
 
     const box=document.getElementById("sonos-impacted");
     if(box) box.innerHTML=impacted.length
@@ -1065,7 +1015,6 @@ if (CORRIDOR_ENABLED) {
       : "Aucun impacté";
 
     computeAlerts(metar||{},rw);
-    lastRunway=rw.name;
   }
 
   const adsb=await fetchADSB().catch(()=>[]);
@@ -1075,9 +1024,8 @@ if (CORRIDOR_ENABLED) {
 
 refresh();
 setInterval(refresh,60_000);
+
 </script>
 
-</body
-
-
-
+</body>
+</html>
