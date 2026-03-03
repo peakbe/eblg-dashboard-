@@ -16,6 +16,7 @@
   <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
+  <script src="https://unpkg.com/leaflet-polylinedecorator@1.7.0/dist/leaflet.polylineDecorator.min.js"></script>
   <!-- ▴ END SECTION: LEAFLET & LIBRARIES ================================================= -->
 
   <!-- ▾ SECTION: GLOBAL CSS =============================================================== -->
@@ -147,6 +148,29 @@
 </div>
 <!-- ▴ END SECTION: CONTROLS =============================================================== -->
 
+  /* ▾ SECTION: CONTROLS (UI BUTTONS) ======================================================= */
+
+let TRACKS_ENABLED = true;
+
+document.getElementById("toggle-tracks").onclick = () => {
+    TRACKS_ENABLED = !TRACKS_ENABLED;
+
+    const btn = document.getElementById("toggle-tracks");
+    btn.textContent = `Trajectoires ADS‑B : ${TRACKS_ENABLED ? "ON" : "OFF"}`;
+
+    if (!TRACKS_ENABLED) {
+        // suppression immédiate des tracés
+        for (const cs in TRACK_LAYERS) {
+            map.removeLayer(TRACK_LAYERS[cs]);
+        }
+        TRACK_LAYERS = {};
+        TRACK_HISTORY = {};
+    }
+};
+
+/* ▴ END SECTION: CONTROLS (UI BUTTONS) =================================================== */
+
+  
 <!-- ▾ SECTION: MAIN LAYOUT ================================================================ -->
 <main>
 
@@ -207,31 +231,7 @@
 <!-- ▾ SECTION: JAVASCRIPT ROOT ============================================================ -->
 
   <script>
-    /* === CONSTANTES MANQUANTES === */
-
-const HEAD_TOL = 15; // tolérance heading pour matching piste
-
-const RWY04_START = [50.63795, 5.4438];
-const RWY04_END   = [50.6436, 5.452];
-
-const RWY22_START = RWY04_END;
-const RWY22_END   = RWY04_START;
-
-const RWY04_EXT_POLY = [
-    computePoint(RWY04_START, -50, 0.03),
-    computePoint(RWY04_END,   -50, 0.03),
-    computePoint(RWY04_END,   130, 0.03),
-    computePoint(RWY04_START, 130, 0.03)
-];
-
-const RWY22_EXT_POLY = [
-    computePoint(RWY22_START, 130, 0.03),
-    computePoint(RWY22_END,   130, 0.03),
-    computePoint(RWY22_END,   -50, 0.03),
-    computePoint(RWY22_START, -50, 0.03)
-];
-
-/* ▾ SECTION: CONFIGURATION GLOBALE ======================================================= */
+  /* ▾ SECTION: CONFIGURATION GLOBALE ======================================================= */
 /*
   Variables globales utilisées dans tout le dashboard :
   - AVWX_TOKEN : clé API METAR
@@ -261,11 +261,34 @@ let FLT_FILTER = "ALL";
 let lastHeading = null;
 let lastRunway = null;
 
+/* === CONSTANTES MANQUANTES === */
+
+const HEAD_TOL = 15;
+
+const RWY04_START = [50.63795, 5.4438];
+const RWY04_END   = [50.6436, 5.452];
+
+const RWY22_START = RWY04_END;
+const RWY22_END   = RWY04_START;
+
+const RWY04_EXT_POLY = [
+    computePoint(RWY04_START, -50, 0.03),
+    computePoint(RWY04_END,   -50, 0.03),
+    computePoint(RWY04_END,   130, 0.03),
+    computePoint(RWY04_START, 130, 0.03)
+];
+
+const RWY22_EXT_POLY = [
+    computePoint(RWY22_START, 130, 0.03),
+    computePoint(RWY22_END,   130, 0.03),
+    computePoint(RWY22_END,   -50, 0.03),
+    computePoint(RWY22_START, -50, 0.03)
+];
+
+    
 let ADSB_BY_CALLSIGN = {};
 let LAST_FIDS = null;
 /* ▴ END SECTION: CONFIGURATION GLOBALE =================================================== */
-
-
 
 /* ▾ SECTION: SONOMETRES (LISTE OFFICIELLE) =============================================== */
 /*
@@ -294,18 +317,7 @@ const SONOS = [
   { id:"F006", lat:50.609594, lon:5.271403, addr:"Rue Bolly Chapon, Seraing" },
   { id:"F012", lat:50.621917, lon:5.254747, addr:"Rue Barbe d'Or, Aineffe" }
 ];
-/* ▴ END SECTION: SONOMETRES ============================================================== */
-
-
-
-/* ▾ SECTION: MATRICE SONO_RULES (OFFICIELLE) ============================================= */
-/*
-  Matrice officielle fournie par l'aéroport :
-  - RWY 22 : simple (ARR / DEP)
-  - RWY 04 : logique verte/rouge selon ARR/DEP
-  Utilisée pour colorer les sonomètres en fonction de la piste et du sens.
-*/
-/* === RÈGLES SONOMÈTRES === */
+    /* === RÈGLES SONOMÈTRES === */
 
 const SONO_RULES = {
     "22": {
@@ -319,6 +331,18 @@ const SONO_RULES = {
         DEP_RED: []
     }
 };
+
+/* ▴ END SECTION: SONOMETRES ============================================================== */
+
+
+
+/* ▾ SECTION: MATRICE SONO_RULES (OFFICIELLE) ============================================= */
+/*
+  Matrice officielle fournie par l'aéroport :
+  - RWY 22 : simple (ARR / DEP)
+  - RWY 04 : logique verte/rouge selon ARR/DEP
+  Utilisée pour colorer les sonomètres en fonction de la piste et du sens.
+*/
 
 
 const COLOR = {
@@ -614,89 +638,173 @@ async function fetchADSB(){
 let ADSB_MARKERS = {};
 
 function updateADSB(states){
-  const seen = new Set();
+    if (!Array.isArray(states)) return;
 
-  for(const s of states){
-    const cs = (s[1] || "").trim();
-    const lon = s[5], lat = s[6];
-    const track = s[10];
+    const seen = new Set();
 
-    if(lat == null || lon == null) continue;
+    for (const s of states) {
+        if (!s) continue;
 
-    const key = cs || s[0];
-    seen.add(key);
+        const csRaw = (s[1] || "").trim();
+        const cs = csRaw || s[0] || "UNK";
 
-    const icon = planeIconFor(cs, track);
+        const lon = s[5];
+        const lat = s[6];
+        const track = s[10];
 
-    if(!ADSB_MARKERS[key]){
-      ADSB_MARKERS[key] = L.marker([lat, lon], { icon }).addTo(map);
-    }else{
-      ADSB_MARKERS[key].setLatLng([lat, lon]);
-      ADSB_MARKERS[key].setIcon(icon);
+        // Données invalides → on ignore
+        if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) continue;
+
+        // OpenSky renvoie parfois lat/lon = 0 → on ignore
+        if (lat === 0 && lon === 0) continue;
+
+        seen.add(cs);
+
+        const icon = planeIconFor(csRaw, track);
+
+        // Création ou mise à jour du marqueur
+        if (!ADSB_MARKERS[cs]) {
+            ADSB_MARKERS[cs] = L.marker([lat, lon], { icon }).addTo(map);
+        } else {
+            const m = ADSB_MARKERS[cs];
+            if (map.hasLayer(m)) {
+                m.setLatLng([lat, lon]);
+                m.setIcon(icon);
+            } else {
+                // marqueur supprimé → on le recrée
+                ADSB_MARKERS[cs] = L.marker([lat, lon], { icon }).addTo(map);
+            }
+        }
+
+        // Stockage pour matching FIDS
+        const norm = normalizeCallsign(csRaw);
+        if (norm) {
+            ADSB_BY_CALLSIGN[norm] = { lat, lon, track };
+        }
     }
 
-    /* Stockage pour matching FIDS */
-    ADSB_BY_CALLSIGN[normalizeCallsign(cs)] = { lat, lon, track };
-  }
-
-  /* Suppression des avions disparus */
-  for(const k in ADSB_MARKERS){
-    if(!seen.has(k)){
-      map.removeLayer(ADSB_MARKERS[k]);
-      delete ADSB_MARKERS[k];
+    // Suppression des avions disparus
+    for (const k in ADSB_MARKERS) {
+        if (!seen.has(k)) {
+            map.removeLayer(ADSB_MARKERS[k]);
+            delete ADSB_MARKERS[k];
+        }
     }
-  }
 
-  if(TRACKS_ENABLED) updateTracks(states);
+    // Mise à jour des trajectoires
+    if (TRACKS_ENABLED) updateTracks(states);
 }
+
 /* ▴ END SECTION: ADS-B MARKERS ============================================================ */
 
 
 
-/* ▾ SECTION: ADS-B TRACKS (POLYLINES) ===================================================== */
-/*
-  Trajectoires :
-  - un polyline par avion
-  - stockage limité (max 40 points)
-  - effacement si TRACKS_ENABLED = false
-*/
-let TRACK_HISTORY = {};
-let TRACK_LINES = {};
+/* ▾ SECTION: ADS-B TRAJECTOIRES =========================================================== */
 
-function updateTracks(states){
-  for(const s of states){
-    const cs = (s[1] || "").trim();
-    const lon = s[5], lat = s[6];
-    if(lat == null || lon == null) continue;
+let TRACK_HISTORY = {};   // { callsign: [ {lat, lon, ts}, ... ] }
+let TRACK_LAYERS = {};    // { callsign: Leaflet polyline }
+let TRACK_DECORATORS = {}; // { callsign: PolylineDecorator }
+const TRACK_MAX_AGE = 5 * 60 * 1000; // 5 minutes
+const TRACK_MAX_POINTS = 200;
 
-    const key = cs || s[0];
+function updateTracks(states) {
+    if (!TRACKS_ENABLED) return;
+    if (!Array.isArray(states)) return;
 
-    if(!TRACK_HISTORY[key]) TRACK_HISTORY[key] = [];
-    TRACK_HISTORY[key].push([lat, lon]);
+    const now = Date.now();
+    const seen = new Set();
 
-    if(TRACK_HISTORY[key].length > 40)
-      TRACK_HISTORY[key].shift();
+    for (const s of states) {
+        if (!s) continue;
 
-    if(!TRACK_LINES[key]){
-      TRACK_LINES[key] = L.polyline(TRACK_HISTORY[key], {
-        color: "#6b7280",
-        weight: 2,
-        opacity: 0.7
-      }).addTo(map);
-    }else{
-      TRACK_LINES[key].setLatLngs(TRACK_HISTORY[key]);
+        const csRaw = (s[1] || "").trim();
+        const cs = csRaw || s[0] || "UNK";
+        const lat = s[6], lon = s[5];
+        const track = s[10];
+        const speed = s[9];
+
+        if (!lat || !lon || lat === 0 || lon === 0) continue;
+
+        seen.add(cs);
+
+        if (!TRACK_HISTORY[cs]) TRACK_HISTORY[cs] = [];
+
+        TRACK_HISTORY[cs].push({ lat, lon, ts: now });
+
+        TRACK_HISTORY[cs] = TRACK_HISTORY[cs].filter(p => now - p.ts <= TRACK_MAX_AGE);
+
+        if (TRACK_HISTORY[cs].length > TRACK_MAX_POINTS) {
+            TRACK_HISTORY[cs].shift();
+        }
+
+        const hue = (track || 0) % 360;
+        const color = `hsl(${hue}, 80%, 55%)`;
+
+        const weight = Math.min(5, Math.max(2, (speed || 0) / 100));
+
+        const pts = TRACK_HISTORY[cs].map(p => [p.lat, p.lon]);
+        const opacity = 0.3 + 0.7 * (TRACK_HISTORY[cs].length / TRACK_MAX_POINTS);
+
+        // Polyline principale
+        if (!TRACK_LAYERS[cs]) {
+            TRACK_LAYERS[cs] = L.polyline(pts, {
+                color,
+                weight,
+                opacity,
+                smoothFactor: 1.0
+            }).addTo(map);
+        } else {
+            TRACK_LAYERS[cs].setLatLngs(pts);
+            TRACK_LAYERS[cs].setStyle({ color, weight, opacity });
+        }
+
+        // Flèches directionnelles
+        if (TRACK_DECORATORS[cs]) {
+            map.removeLayer(TRACK_DECORATORS[cs]);
+        }
+
+        TRACK_DECORATORS[cs] = L.polylineDecorator(TRACK_LAYERS[cs], {
+            patterns: [
+                {
+                    offset: '80%',
+                    repeat: 0,
+                    symbol: L.Symbol.arrowHead({
+                        pixelSize: 10,
+                        polygon: true,
+                        pathOptions: {
+                            stroke: true,
+                            color,
+                            weight: weight + 1,
+                            opacity: opacity
+                        }
+                    })
+                }
+            ]
+        }).addTo(map);
     }
-  }
+
+    // Suppression des avions disparus
+    for (const cs in TRACK_HISTORY) {
+        if (!seen.has(cs)) {
+            delete TRACK_HISTORY[cs];
+
+            if (TRACK_LAYERS[cs]) {
+                map.removeLayer(TRACK_LAYERS[cs]);
+                delete TRACK_LAYERS[cs];
+            }
+
+            if (TRACK_DECORATORS[cs]) {
+                map.removeLayer(TRACK_DECORATORS[cs]);
+                delete TRACK_DECORATORS[cs];
+            }
+        }
+    }
 }
 
-function hideAllTracks(){
-  for(const k in TRACK_LINES){
-    map.removeLayer(TRACK_LINES[k]);
-  }
-  TRACK_LINES = {};
-  TRACK_HISTORY = {};
-}
-/* ▴ END SECTION: ADS-B TRACKS ============================================================= */
+
+/* ▴ END SECTION: ADS-B TRAJECTOIRES ======================================================= */
+
+
 
 
 
@@ -1500,5 +1608,6 @@ refresh();
 
 </body>
 </html>
+
 
 
