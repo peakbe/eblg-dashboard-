@@ -231,6 +231,8 @@ const EBLG = {
 };
 
 let FLT_FILTER = "ALL";
+  const HEAD_TOL = 15; // tolérance en degrés pour le matching heading (ADS‑B / piste)
+
 let lastHeading = null;
 let lastRunway = null;
 
@@ -1462,3 +1464,4 @@ refresh();
 
 </body>
 </html>
+
