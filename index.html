@@ -205,7 +205,32 @@
 <!-- ▴ END SECTION: MAIN LAYOUT ============================================================ -->
 
 <!-- ▾ SECTION: JAVASCRIPT ROOT ============================================================ -->
-<script>
+
+  <script>
+    /* === CONSTANTES MANQUANTES === */
+
+const HEAD_TOL = 15; // tolérance heading pour matching piste
+
+const RWY04_START = [50.63795, 5.4438];
+const RWY04_END   = [50.6436, 5.452];
+
+const RWY22_START = RWY04_END;
+const RWY22_END   = RWY04_START;
+
+const RWY04_EXT_POLY = [
+    computePoint(RWY04_START, -50, 0.03),
+    computePoint(RWY04_END,   -50, 0.03),
+    computePoint(RWY04_END,   130, 0.03),
+    computePoint(RWY04_START, 130, 0.03)
+];
+
+const RWY22_EXT_POLY = [
+    computePoint(RWY22_START, 130, 0.03),
+    computePoint(RWY22_END,   130, 0.03),
+    computePoint(RWY22_END,   -50, 0.03),
+    computePoint(RWY22_START, -50, 0.03)
+];
+
 /* ▾ SECTION: CONFIGURATION GLOBALE ======================================================= */
 /*
   Variables globales utilisées dans tout le dashboard :
@@ -280,18 +305,21 @@ const SONOS = [
   - RWY 04 : logique verte/rouge selon ARR/DEP
   Utilisée pour colorer les sonomètres en fonction de la piste et du sens.
 */
+/* === RÈGLES SONOMÈTRES === */
+
 const SONO_RULES = {
-  "22": {
-    "DEP": ["F002","F003","F004","F005","F006","F007","F008","F009","F010","F011","F012","F013","F016"],
-    "ARR": ["F001","F014","F015","F017"]
-  },
-  "04": {
-    "ARR_GREEN": ["F002","F003","F007","F008","F009","F011","F013"],
-    "ARR_RED":   ["F004","F005","F006","F010","F012","F016"],
-    "DEP_GREEN": ["F014","F015"],
-    "DEP_RED":   ["F001","F017"]
-  }
+    "22": {
+        ARR: ["F017","F001","F014","F015","F005","F003","F011","F008","F002","F007","F009","F004","F010","F013","F016","F006","F012"],
+        DEP: ["F017","F001","F014","F015","F005","F003","F011","F008","F002","F007","F009","F004","F010","F013","F016","F006","F012"]
+    },
+    "04": {
+        ARR_GREEN: ["F017","F001","F014","F015","F005","F003","F011","F008","F002","F007","F009","F004","F010","F013","F016","F006","F012"],
+        ARR_RED: [],
+        DEP_GREEN: ["F017","F001","F014","F015","F005","F003","F011","F008","F002","F007","F009","F004","F010","F013","F016","F006","F012"],
+        DEP_RED: []
+    }
 };
+
 
 const COLOR = {
   green: "#10b981",
@@ -861,29 +889,31 @@ function runwayFromMetar(m){
   - RWY 22 : simple ARR/DEP
   - RWY 04 : logique verte/rouge
 */
-function updateSonoColors(runway, phase){
-  SONO_MARKERS.forEach(s=>{
-    let color = COLOR.gray;
+function updateSonoColors(runway, phase) {
+    if (!runway || !phase || !SONO_RULES[runway]) return;
 
-    if(runway==="22"){
-      if(SONO_RULES["22"][phase].includes(s.id))
-        color = COLOR.green;
-    }
+    SONO_MARKERS.forEach(s => {
+        let color = COLOR.gray;
 
-    if(runway==="04"){
-      if(phase==="ARR"){
-        if(SONO_RULES["04"].ARR_GREEN.includes(s.id)) color = COLOR.green;
-        if(SONO_RULES["04"].ARR_RED.includes(s.id))   color = COLOR.red;
-      }
-      if(phase==="DEP"){
-        if(SONO_RULES["04"].DEP_GREEN.includes(s.id)) color = COLOR.green;
-        if(SONO_RULES["04"].DEP_RED.includes(s.id))   color = COLOR.red;
-      }
-    }
+        if (runway === "22") {
+            if (SONO_RULES["22"][phase].includes(s.id)) color = COLOR.green;
+        }
 
-    s.marker.setStyle({ color, fillColor: color, fillOpacity: 1 });
-  });
+        if (runway === "04") {
+            if (phase === "ARR") {
+                if (SONO_RULES["04"].ARR_GREEN.includes(s.id)) color = COLOR.green;
+                if (SONO_RULES["04"].ARR_RED.includes(s.id)) color = COLOR.red;
+            }
+            if (phase === "DEP") {
+                if (SONO_RULES["04"].DEP_GREEN.includes(s.id)) color = COLOR.green;
+                if (SONO_RULES["04"].DEP_RED.includes(s.id)) color = COLOR.red;
+            }
+        }
+
+        s.marker.setStyle({ color, fillColor: color, fillOpacity: 1 });
+    });
 }
+
 /* ▴ END SECTION: SONOMETRES COLORATION =================================================== */
 
 
@@ -895,10 +925,16 @@ function updateSonoColors(runway, phase){
   updateHeatmap :
   - applique la heatmap Leaflet
 */
-function computeImpacted(h){
-  const poly = h < 180 ? RWY04_EXT_POLY : RWY22_EXT_POLY;
-  return SONO_MARKERS.filter(s=>pointInPolygon([s.lat,s.lon], poly));
+function computeImpacted(h) {
+    if (!h) return [];
+
+    const poly = h < 180 ? RWY04_EXT_POLY : RWY22_EXT_POLY;
+
+    if (!poly) return [];
+
+    return SONO_MARKERS.filter(s => pointInPolygon([s.lat, s.lon], poly));
 }
+
 
 function updateHeatmap(list){
   if(heatLayer){
@@ -1464,4 +1500,5 @@ refresh();
 
 </body>
 </html>
+
 
