@@ -169,7 +169,7 @@ document.getElementById("toggle-tracks").onclick = () => {
 };
 
 /* ▴ END SECTION: CONTROLS (UI BUTTONS) =================================================== */
-
+intégrer le panneau d’infos avion complet
   
 <!-- ▾ SECTION: MAIN LAYOUT ================================================================ -->
 <main>
@@ -704,6 +704,7 @@ function updateADSB(states){
 let TRACK_HISTORY = {};   // { callsign: [ {lat, lon, ts}, ... ] }
 let TRACK_LAYERS = {};    // { callsign: Leaflet polyline }
 let TRACK_DECORATORS = {}; // { callsign: PolylineDecorator }
+let SELECTED_PLANE = null; // avion sélectionné par clic
 const TRACK_MAX_AGE = 5 * 60 * 1000; // 5 minutes
 const TRACK_MAX_POINTS = 200;
 
@@ -764,22 +765,37 @@ function updateTracks(states) {
         }
 
         TRACK_DECORATORS[cs] = L.polylineDecorator(TRACK_LAYERS[cs], {
-            patterns: [
-                {
-                    offset: '80%',
-                    repeat: 0,
-                    symbol: L.Symbol.arrowHead({
-                        pixelSize: 10,
-                        polygon: true,
-                        pathOptions: {
-                            stroke: true,
-                            color,
-                            weight: weight + 1,
-                            opacity: opacity
-                        }
-                    })
-                }
-            ]
+           patterns: [
+    {
+        offset: '80%',
+        repeat: 0,
+        symbol: L.Symbol.arrowHead({
+            pixelSize: 16,
+            polygon: true,
+            pathOptions: {
+                stroke: true,
+                color: "#ffffff",
+                weight: weight + 4,
+                opacity: opacity * 0.4
+            }
+        })
+    },
+    {
+        offset: '80%',
+        repeat: 0,
+        symbol: L.Symbol.arrowHead({
+            pixelSize: 10,
+            polygon: true,
+            pathOptions: {
+                stroke: true,
+                color,
+                weight: weight + 1,
+                opacity
+            }
+        })
+    }
+]
+
         }).addTo(map);
     }
 
@@ -1583,6 +1599,33 @@ async function refresh(){
 
   const adsb = await fetchADSB().catch(()=>[]);
   updateADSB(adsb);
+ADSB_MARKERS[key].on("click", () => {
+    SELECTED_PLANE = key;
+    highlightSelectedPlane(key);
+    showPlaneInfo(key);
+});
+function highlightSelectedPlane(cs) {
+    for (const k in TRACK_LAYERS) {
+        if (k === cs) {
+            TRACK_LAYERS[k].setStyle({ weight: 6, opacity: 1 });
+            if (TRACK_DECORATORS[k]) TRACK_DECORATORS[k].setOpacity(1);
+        } else {
+            TRACK_LAYERS[k].setStyle({ weight: 2, opacity: 0.3 });
+            if (TRACK_DECORATORS[k]) TRACK_DECORATORS[k].setOpacity(0.3);
+        }
+    }
+}
+
+function showPlaneInfo(cs) {
+    const info = ADSB_BY_CALLSIGN[normalizeCallsign(cs)] || {};
+    const box = document.getElementById("plane-info");
+    box.innerHTML = `
+        <b>${cs}</b><br>
+        Latitude : ${info.lat?.toFixed(4)}<br>
+        Longitude : ${info.lon?.toFixed(4)}<br>
+        Cap : ${info.track}°<br>
+    `;
+}
 
   detectTakeoff04(adsb);
   detectTakeoff22(adsb);
@@ -1608,6 +1651,7 @@ refresh();
 
 </body>
 </html>
+
 
 
 
