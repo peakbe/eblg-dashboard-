@@ -124,6 +124,44 @@
         height: 55vh;
       }
     }
+
+    #plane-info {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    z-index: 9999;
+
+    background: rgba(20, 20, 20, 0.75);
+    color: white;
+
+    border-radius: 8px;
+    padding: 12px 14px;
+    min-width: 240px;
+
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+    backdrop-filter: blur(6px);
+
+    font-size: 14px;
+    line-height: 1.45;
+
+    border-left: 4px solid #00aaff; /* couleur dynamique modifiée en JS */
+}
+
+#plane-info .title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+#plane-info .title img {
+    width: 18px;
+    height: 18px;
+    filter: drop-shadow(0 0 2px rgba(255,255,255,0.6));
+}
+
   </style>
   <!-- ▴ END SECTION: GLOBAL CSS =========================================================== -->
 
@@ -145,8 +183,15 @@
   <button id="toggle-tracks" class="tag">Trajectoires ADS‑B : ON</button>
   <button id="toggle-sonos" class="tag">Sonomètres : ON</button>
   <button id="reset-map" class="tag">Reset Carte</button>
+  
 </div>
 <!-- ▴ END SECTION: CONTROLS =============================================================== -->
+  
+<!-- ▾ SECTION: PLANE INFO PANEL =========================================================== --> 
+ 
+  <div id="plane-info" class="tag" style="padding:10px; min-width:220px; display:none; line-height:1.4;"> 
+  
+  </div> <!-- ▴ END SECTION: PLANE INFO PANEL ======================================================= -->
 
   /* ▾ SECTION: CONTROLS (UI BUTTONS) ======================================================= */
 
@@ -607,7 +652,8 @@ function planeIconFor(callsign, track){
   return AIRCRAFT_ICON(track||0, color);
 }
 /* ▴ END SECTION: LOGIQUE ICONE AVION ====================================================== */
-/* ▾ SECTION: ADS-B FETCH ================================================================= */
+
+    /* ▾ SECTION: ADS-B FETCH ================================================================= */
 /*
   Récupération des données ADS‑B :
   - API OpenSky (ou proxy équivalent)
@@ -675,11 +721,48 @@ function updateADSB(states){
                 ADSB_MARKERS[cs] = L.marker([lat, lon], { icon }).addTo(map);
             }
         }
+function showPlaneInfo(cs) {
+    const norm = normalizeCallsign(cs);
+    const info = ADSB_BY_CALLSIGN[norm];
+    const box = document.getElementById("plane-info");
+
+    if (!info) {
+        box.style.display = "none";
+        return;
+    }
+
+    box.style.display = "block";
+
+    box.innerHTML = `
+        <b>${info.callsign || info.icao}</b><br>
+        <hr>
+        Latitude : ${info.lat?.toFixed(4)}<br>
+        Longitude : ${info.lon?.toFixed(4)}<br>
+        Altitude : ${info.altitude ? info.altitude + " ft" : "N/A"}<br>
+        Vitesse sol : ${info.speed ? info.speed + " kt" : "N/A"}<br>
+        Taux montée/descente : ${info.verticalRate ? info.verticalRate + " ft/min" : "N/A"}<br>
+        Cap : ${info.heading ? info.heading + "°" : "N/A"}<br>
+        Sol : ${info.onGround ? "Oui" : "Non"}<br>
+        Dernière mise à jour : ${new Date(info.lastSeen).toLocaleTimeString()}<br>
+    `;
+}
 
         // Stockage pour matching FIDS
         const norm = normalizeCallsign(csRaw);
         if (norm) {
-            ADSB_BY_CALLSIGN[norm] = { lat, lon, track };
+            ADSB_BY_CALLSIGN[normalizeCallsign(cs)] = {
+    icao: s[0],
+    callsign: csRaw,
+    lat,
+    lon,
+    altitude: s[13],
+    speed: s[9],
+    verticalRate: s[11],
+    heading: s[10],
+    onGround: s[8],
+    lastSeen: Date.now()
+};
+
         }
     }
 
@@ -695,6 +778,12 @@ function updateADSB(states){
     if (TRACKS_ENABLED) updateTracks(states);
 }
 
+    if (SELECTED_PLANE && !ADSB_MARKERS[SELECTED_PLANE]) {
+    SELECTED_PLANE = null;
+    document.getElementById("plane-info").style.display = "none";
+}
+
+      
 /* ▴ END SECTION: ADS-B MARKERS ============================================================ */
 
 
@@ -705,8 +794,15 @@ let TRACK_HISTORY = {};   // { callsign: [ {lat, lon, ts}, ... ] }
 let TRACK_LAYERS = {};    // { callsign: Leaflet polyline }
 let TRACK_DECORATORS = {}; // { callsign: PolylineDecorator }
 let SELECTED_PLANE = null; // avion sélectionné par clic
+    
 const TRACK_MAX_AGE = 5 * 60 * 1000; // 5 minutes
 const TRACK_MAX_POINTS = 200;
+
+    const PLANE_ICON_SVG = `
+<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+  <path d="M2.5 19l8.5-7-8.5-7v5l6 2-6 2v5zm19-7l-8.5-7v5l6 2-6 2v5l8.5-7z"/>
+</svg>
+`;
 
 function updateTracks(states) {
     if (!TRACKS_ENABLED) return;
@@ -737,6 +833,17 @@ function updateTracks(states) {
         if (TRACK_HISTORY[cs].length > TRACK_MAX_POINTS) {
             TRACK_HISTORY[cs].shift();
         }
+    function highlightSelectedPlane(cs) {
+    for (const k in TRACK_LAYERS) {
+        if (k === cs) {
+            TRACK_LAYERS[k].setStyle({ weight: 6, opacity: 1 });
+            if (TRACK_DECORATORS[k]) TRACK_DECORATORS[k].setOpacity(1);
+        } else {
+            TRACK_LAYERS[k].setStyle({ weight: 2, opacity: 0.3 });
+            if (TRACK_DECORATORS[k]) TRACK_DECORATORS[k].setOpacity(0.3);
+        }
+    }
+}
 
         const hue = (track || 0) % 360;
         const color = `hsl(${hue}, 80%, 55%)`;
@@ -1617,21 +1724,39 @@ function highlightSelectedPlane(cs) {
 }
 
 function showPlaneInfo(cs) {
-    const info = ADSB_BY_CALLSIGN[normalizeCallsign(cs)] || {};
+    const norm = normalizeCallsign(cs);
+    const info = ADSB_BY_CALLSIGN[norm];
     const box = document.getElementById("plane-info");
+
+    if (!info) {
+        box.style.display = "none";
+        return;
+    }
+
+    // Couleur dynamique selon heading
+    const hue = (info.heading || 0) % 360;
+    const color = `hsl(${hue}, 80%, 55%)`;
+    box.style.borderLeftColor = color;
+
+    box.style.display = "block";
+
     box.innerHTML = `
-        <b>${cs}</b><br>
+        <div class="title">
+            <span style="color:${color};">${PLANE_ICON_SVG}</span>
+            ${info.callsign || info.icao}
+        </div>
+
         Latitude : ${info.lat?.toFixed(4)}<br>
         Longitude : ${info.lon?.toFixed(4)}<br>
-        Cap : ${info.track}°<br>
+        Altitude : ${info.altitude ? info.altitude + " ft" : "N/A"}<br>
+        Vitesse sol : ${info.speed ? info.speed + " kt" : "N/A"}<br>
+        Taux montée/descente : ${info.verticalRate ? info.verticalRate + " ft/min" : "N/A"}<br>
+        Cap : ${info.heading ? info.heading + "°" : "N/A"}<br>
+        Sol : ${info.onGround ? "Oui" : "Non"}<br>
+        Dernière mise à jour : ${new Date(info.lastSeen).toLocaleTimeString()}<br>
     `;
 }
 
-  detectTakeoff04(adsb);
-  detectTakeoff22(adsb);
-
-  updateF017Icon();
-}
 /* ▴ END SECTION: MAIN LOOP ================================================================ */
 
 
@@ -1651,6 +1776,7 @@ refresh();
 
 </body>
 </html>
+
 
 
 
