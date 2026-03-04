@@ -125,42 +125,82 @@
       }
     }
 
-    #plane-info {
+/* ▾ PANEL AVION — STYLE COMPLET ========================================================== */
+
+#plane-info {
     position: fixed;
     top: 80px;
     right: 20px;
     z-index: 9999;
 
-    background: rgba(20, 20, 20, 0.75);
-    color: white;
-
-    border-radius: 8px;
-    padding: 12px 14px;
-    min-width: 240px;
-
-    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+    background: rgba(20, 20, 20, 0.78);
     backdrop-filter: blur(6px);
 
+    color: #f0f0f0;
     font-size: 14px;
     line-height: 1.45;
 
-    border-left: 4px solid #00aaff; /* couleur dynamique modifiée en JS */
+    padding: 14px 16px;
+    min-width: 240px;
+    max-width: 280px;
+
+    border-radius: 8px;
+    border-left: 4px solid #00aaff; /* mis à jour dynamiquement */
+
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+
+    display: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    transform: translateY(-6px);
 }
 
+#plane-info.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Titre + icône avion */
 #plane-info .title {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+
     font-size: 16px;
     font-weight: bold;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    color: #ffffff;
 }
 
-#plane-info .title img {
+#plane-info .title svg {
     width: 18px;
     height: 18px;
     filter: drop-shadow(0 0 2px rgba(255,255,255,0.6));
 }
+
+/* Ligne séparatrice */
+#plane-info hr {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    margin: 8px 0;
+}
+
+/* Valeurs */
+#plane-info b {
+    color: #ffffff;
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+    #plane-info {
+        top: 70px;
+        right: 10px;
+        min-width: 200px;
+        max-width: 240px;
+        font-size: 13px;
+    }
+}
+/* ▴ PANEL AVION — FIN ==================================================================== */
+
 
   </style>
   <!-- ▴ END SECTION: GLOBAL CSS =========================================================== -->
@@ -193,6 +233,7 @@
   
   </div> <!-- ▴ END SECTION: PLANE INFO PANEL ======================================================= -->
 
+  <script>
    /* ▾ SECTION: CONTROLS (UI BUTTONS) ======================================================= */
 
 let TRACKS_ENABLED = true;
@@ -214,9 +255,9 @@ document.getElementById("toggle-tracks").onclick = () => {
 };
 
 /* ▴ END SECTION: CONTROLS (UI BUTTONS) =================================================== */
- 
-intégrer le panneau d’infos avion complet
+  </script>
   
+
 <!-- ▾ SECTION: MAIN LAYOUT ================================================================ -->
 <main>
 
@@ -654,12 +695,10 @@ function planeIconFor(callsign, track){
 }
 /* ▴ END SECTION: LOGIQUE ICONE AVION ====================================================== */
 
-    /* ▾ SECTION: ADS-B FETCH ================================================================= */
+   /* ▾ SECTION: ADS-B FETCH ================================================================= */
 /*
-  Récupération des données ADS‑B :
-  - API OpenSky (ou proxy équivalent)
-  - Format : tableau d’états
-  - Chaque état = [icao24, callsign, ..., lon, lat, baro_alt, velocity, heading, ...]
+  Récupération des données ADS‑B via OpenSky.
+  Retourne un tableau d’états : [icao24, callsign, ..., lon, lat, baro_alt, velocity, heading, ...]
 */
 async function fetchADSB(){
   try{
@@ -683,6 +722,12 @@ async function fetchADSB(){
   - suppression des avions disparus
 */
 let ADSB_MARKERS = {};
+let ADSB_BY_CALLSIGN = {};
+/* ▴ END SECTION: ADS-B MARKERS ============================================================ */
+
+
+
+/* ▾ SECTION: ADS-B UPDATE ================================================================= */
 
 function updateADSB(states){
     if (!Array.isArray(states)) return;
@@ -697,77 +742,56 @@ function updateADSB(states){
 
         const lon = s[5];
         const lat = s[6];
-        const track = s[10];
+        const heading = s[10];
 
-        // Données invalides → on ignore
         if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) continue;
-
-        // OpenSky renvoie parfois lat/lon = 0 → on ignore
         if (lat === 0 && lon === 0) continue;
 
         seen.add(cs);
 
-        const icon = planeIconFor(csRaw, track);
+        const icon = planeIconFor(csRaw, heading);
 
-        // Création ou mise à jour du marqueur
+        /* --- Création ou mise à jour du marqueur --- */
         if (!ADSB_MARKERS[cs]) {
+
             ADSB_MARKERS[cs] = L.marker([lat, lon], { icon }).addTo(map);
+
+            // CLIC AVION → sélection + panneau info
+            ADSB_MARKERS[cs].on("click", () => {
+                SELECTED_PLANE = cs;
+                highlightSelectedPlane(cs);
+                showPlaneInfo(cs);
+            });
+
         } else {
             const m = ADSB_MARKERS[cs];
             if (map.hasLayer(m)) {
                 m.setLatLng([lat, lon]);
                 m.setIcon(icon);
             } else {
-                // marqueur supprimé → on le recrée
                 ADSB_MARKERS[cs] = L.marker([lat, lon], { icon }).addTo(map);
             }
         }
-function showPlaneInfo(cs) {
-    const norm = normalizeCallsign(cs);
-    const info = ADSB_BY_CALLSIGN[norm];
-    const box = document.getElementById("plane-info");
 
-    if (!info) {
-        box.style.display = "none";
-        return;
-    }
-
-    box.style.display = "block";
-
-    box.innerHTML = `
-        <b>${info.callsign || info.icao}</b><br>
-        <hr>
-        Latitude : ${info.lat?.toFixed(4)}<br>
-        Longitude : ${info.lon?.toFixed(4)}<br>
-        Altitude : ${info.altitude ? info.altitude + " ft" : "N/A"}<br>
-        Vitesse sol : ${info.speed ? info.speed + " kt" : "N/A"}<br>
-        Taux montée/descente : ${info.verticalRate ? info.verticalRate + " ft/min" : "N/A"}<br>
-        Cap : ${info.heading ? info.heading + "°" : "N/A"}<br>
-        Sol : ${info.onGround ? "Oui" : "Non"}<br>
-        Dernière mise à jour : ${new Date(info.lastSeen).toLocaleTimeString()}<br>
-    `;
-}
-
-        // Stockage pour matching FIDS
+        /* --- Stockage des infos avion pour le panneau --- */
         const norm = normalizeCallsign(csRaw);
         if (norm) {
-            ADSB_BY_CALLSIGN[normalizeCallsign(cs)] = {
-    icao: s[0],
-    callsign: csRaw,
-    lat,
-    lon,
-    altitude: s[13],
-    speed: s[9],
-    verticalRate: s[11],
-    heading: s[10],
-    onGround: s[8],
-    lastSeen: Date.now()
-};
-
+            ADSB_BY_CALLSIGN[norm] = {
+                icao: s[0],
+                callsign: csRaw,
+                lat,
+                lon,
+                altitude: s[13],
+                speed: s[9],
+                verticalRate: s[11],
+                heading: s[10],
+                onGround: s[8],
+                lastSeen: Date.now()
+            };
         }
     }
 
-    // Suppression des avions disparus
+    /* --- Suppression des avions disparus --- */
     for (const k in ADSB_MARKERS) {
         if (!seen.has(k)) {
             map.removeLayer(ADSB_MARKERS[k]);
@@ -775,31 +799,30 @@ function showPlaneInfo(cs) {
         }
     }
 
-    // Mise à jour des trajectoires
+    /* --- Mise à jour des trajectoires --- */
     if (TRACKS_ENABLED) updateTracks(states);
-}
 
+    /* --- Si avion sélectionné disparu → fermer panneau --- */
     if (SELECTED_PLANE && !ADSB_MARKERS[SELECTED_PLANE]) {
-    SELECTED_PLANE = null;
-    document.getElementById("plane-info").style.display = "none";
+        SELECTED_PLANE = null;
+        hidePlaneInfo();
+    }
 }
-
-      
-/* ▴ END SECTION: ADS-B MARKERS ============================================================ */
+/* ▴ END SECTION: ADS-B UPDATE ============================================================= */
 
 
 
 /* ▾ SECTION: ADS-B TRAJECTOIRES =========================================================== */
 
-let TRACK_HISTORY = {};   // { callsign: [ {lat, lon, ts}, ... ] }
-let TRACK_LAYERS = {};    // { callsign: Leaflet polyline }
-let TRACK_DECORATORS = {}; // { callsign: PolylineDecorator }
-let SELECTED_PLANE = null; // avion sélectionné par clic
-    
-const TRACK_MAX_AGE = 5 * 60 * 1000; // 5 minutes
+let TRACK_HISTORY = {};
+let TRACK_LAYERS = {};
+let TRACK_DECORATORS = {};
+let SELECTED_PLANE = null;
+
+const TRACK_MAX_AGE = 5 * 60 * 1000;
 const TRACK_MAX_POINTS = 200;
 
-    const PLANE_ICON_SVG = `
+const PLANE_ICON_SVG = `
 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
   <path d="M2.5 19l8.5-7-8.5-7v5l6 2-6 2v5zm19-7l-8.5-7v5l6 2-6 2v5l8.5-7z"/>
 </svg>
@@ -818,7 +841,7 @@ function updateTracks(states) {
         const csRaw = (s[1] || "").trim();
         const cs = csRaw || s[0] || "UNK";
         const lat = s[6], lon = s[5];
-        const track = s[10];
+        const heading = s[10];
         const speed = s[9];
 
         if (!lat || !lon || lat === 0 || lon === 0) continue;
@@ -826,35 +849,18 @@ function updateTracks(states) {
         seen.add(cs);
 
         if (!TRACK_HISTORY[cs]) TRACK_HISTORY[cs] = [];
-
         TRACK_HISTORY[cs].push({ lat, lon, ts: now });
 
         TRACK_HISTORY[cs] = TRACK_HISTORY[cs].filter(p => now - p.ts <= TRACK_MAX_AGE);
+        if (TRACK_HISTORY[cs].length > TRACK_MAX_POINTS) TRACK_HISTORY[cs].shift();
 
-        if (TRACK_HISTORY[cs].length > TRACK_MAX_POINTS) {
-            TRACK_HISTORY[cs].shift();
-        }
-    function highlightSelectedPlane(cs) {
-    for (const k in TRACK_LAYERS) {
-        if (k === cs) {
-            TRACK_LAYERS[k].setStyle({ weight: 6, opacity: 1 });
-            if (TRACK_DECORATORS[k]) TRACK_DECORATORS[k].setOpacity(1);
-        } else {
-            TRACK_LAYERS[k].setStyle({ weight: 2, opacity: 0.3 });
-            if (TRACK_DECORATORS[k]) TRACK_DECORATORS[k].setOpacity(0.3);
-        }
-    }
-}
-
-        const hue = (track || 0) % 360;
+        const hue = (heading || 0) % 360;
         const color = `hsl(${hue}, 80%, 55%)`;
-
         const weight = Math.min(5, Math.max(2, (speed || 0) / 100));
-
         const pts = TRACK_HISTORY[cs].map(p => [p.lat, p.lon]);
         const opacity = 0.3 + 0.7 * (TRACK_HISTORY[cs].length / TRACK_MAX_POINTS);
 
-        // Polyline principale
+        /* --- Polyline principale --- */
         if (!TRACK_LAYERS[cs]) {
             TRACK_LAYERS[cs] = L.polyline(pts, {
                 color,
@@ -867,92 +873,112 @@ function updateTracks(states) {
             TRACK_LAYERS[cs].setStyle({ color, weight, opacity });
         }
 
-        // Flèches directionnelles
-        if (TRACK_DECORATORS[cs]) {
-            map.removeLayer(TRACK_DECORATORS[cs]);
-        }
+        /* --- Flèches directionnelles + halo --- */
+        if (TRACK_DECORATORS[cs]) map.removeLayer(TRACK_DECORATORS[cs]);
 
         TRACK_DECORATORS[cs] = L.polylineDecorator(TRACK_LAYERS[cs], {
-           patterns: [
-    {
-        offset: '80%',
-        repeat: 0,
-        symbol: L.Symbol.arrowHead({
-            pixelSize: 16,
-            polygon: true,
-            pathOptions: {
-                stroke: true,
-                color: "#ffffff",
-                weight: weight + 4,
-                opacity: opacity * 0.4
-            }
-        })
-    },
-    {
-        offset: '80%',
-        repeat: 0,
-        symbol: L.Symbol.arrowHead({
-            pixelSize: 10,
-            polygon: true,
-            pathOptions: {
-                stroke: true,
-                color,
-                weight: weight + 1,
-                opacity
-            }
-        })
-    }
-]
-
+            patterns: [
+                {
+                    offset: '80%',
+                    repeat: 0,
+                    symbol: L.Symbol.arrowHead({
+                        pixelSize: 16,
+                        polygon: true,
+                        pathOptions: {
+                            stroke: true,
+                            color: "#ffffff",
+                            weight: weight + 4,
+                            opacity: opacity * 0.4
+                        }
+                    })
+                },
+                {
+                    offset: '80%',
+                    repeat: 0,
+                    symbol: L.Symbol.arrowHead({
+                        pixelSize: 10,
+                        polygon: true,
+                        pathOptions: {
+                            stroke: true,
+                            color,
+                            weight: weight + 1,
+                            opacity
+                        }
+                    })
+                }
+            ]
         }).addTo(map);
     }
 
-    // Suppression des avions disparus
+    /* --- Suppression des trajectoires disparues --- */
     for (const cs in TRACK_HISTORY) {
         if (!seen.has(cs)) {
             delete TRACK_HISTORY[cs];
-
-            if (TRACK_LAYERS[cs]) {
-                map.removeLayer(TRACK_LAYERS[cs]);
-                delete TRACK_LAYERS[cs];
-            }
-
-            if (TRACK_DECORATORS[cs]) {
-                map.removeLayer(TRACK_DECORATORS[cs]);
-                delete TRACK_DECORATORS[cs];
-            }
+            if (TRACK_LAYERS[cs]) { map.removeLayer(TRACK_LAYERS[cs]); delete TRACK_LAYERS[cs]; }
+            if (TRACK_DECORATORS[cs]) { map.removeLayer(TRACK_DECORATORS[cs]); delete TRACK_DECORATORS[cs]; }
         }
     }
 }
-
-
 /* ▴ END SECTION: ADS-B TRAJECTOIRES ======================================================= */
 
 
 
+/* ▾ SECTION: ADS-B SELECTION & INFO PANEL ================================================= */
 
-
-/* ▾ SECTION: MATCHING FIDS ↔ ADS-B ======================================================== */
-/*
-  Lorsqu’un vol est cliqué dans la liste FIDS :
-  - focus sur l’avion correspondant (si présent ADS‑B)
-  - sinon focus sur un point par défaut
-*/
-function focusAircraftByCallsign(norm, v){
-  if(!norm) return;
-
-  const a = ADSB_BY_CALLSIGN[norm];
-  if(a){
-    map.setView([a.lat, a.lon], 13);
-    return;
-  }
-
-  /* fallback : position générique */
-  if(v){
-    highlightFlightOnMap(v);
-  }
+function highlightSelectedPlane(cs) {
+    for (const k in TRACK_LAYERS) {
+        if (k === cs) {
+            TRACK_LAYERS[k].setStyle({ weight: 6, opacity: 1 });
+            if (TRACK_DECORATORS[k]) TRACK_DECORATORS[k].setOpacity(1);
+        } else {
+            TRACK_LAYERS[k].setStyle({ weight: 2, opacity: 0.3 });
+            if (TRACK_DECORATORS[k]) TRACK_DECORATORS[k].setOpacity(0.3);
+        }
+    }
 }
-/* ▴ END SECTION: MATCHING FIDS ↔ ADS-B ==================================================== */
+
+function showPlaneInfo(cs) {
+    const norm = normalizeCallsign(cs);
+    const info = ADSB_BY_CALLSIGN[norm];
+    const box = document.getElementById("plane-info");
+
+    if (!info) {
+        hidePlaneInfo();
+        return;
+    }
+
+    const hue = (info.heading || 0) % 360;
+    const color = `hsl(${hue}, 80%, 55%)`;
+    box.style.borderLeftColor = color;
+
+    box.style.display = "block";
+    requestAnimationFrame(() => box.classList.add("show"));
+
+    box.innerHTML = `
+        <div class="title">
+            <span style="color:${color};">${PLANE_ICON_SVG}</span>
+            ${info.callsign || info.icao}
+        </div>
+
+        Latitude : ${info.lat?.toFixed(4)}<br>
+        Longitude : ${info.lon?.toFixed(4)}<br>
+        Altitude : ${info.altitude ? info.altitude + " ft" : "N/A"}<br>
+        Vitesse sol : ${info.speed ? info.speed + " kt" : "N/A"}<br>
+        Taux montée/descente : ${info.verticalRate ? info.verticalRate + " ft/min" : "N/A"}<br>
+        Cap : ${info.heading ? info.heading + "°" : "N/A"}<br>
+        Sol : ${info.onGround ? "Oui" : "Non"}<br>
+        Dernière mise à jour : ${new Date(info.lastSeen).toLocaleTimeString()}<br>
+    `;
+}
+
+function hidePlaneInfo() {
+    const box = document.getElementById("plane-info");
+    box.classList.remove("show");
+    setTimeout(() => box.style.display = "none", 200);
+}
+/* ▴ END SECTION: ADS-B SELECTION & INFO PANEL ============================================ */
+
+
 
 
 /* ▾ SECTION: METAR ======================================================================= */
@@ -1707,11 +1733,89 @@ async function refresh(){
 
   const adsb = await fetchADSB().catch(()=>[]);
   updateADSB(adsb);
-ADSB_MARKERS[key].on("click", () => {
-    SELECTED_PLANE = key;
-    highlightSelectedPlane(key);
-    showPlaneInfo(key);
-});
+
+  function updateADSB(states){
+    if (!Array.isArray(states)) return;
+
+    const seen = new Set();
+
+    for (const s of states) {
+        if (!s) continue;
+
+        const csRaw = (s[1] || "").trim();
+        const cs = csRaw || s[0] || "UNK";
+
+        const lon = s[5];
+        const lat = s[6];
+        const heading = s[10];
+
+        // Données invalides → on ignore
+        if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) continue;
+        if (lat === 0 && lon === 0) continue;
+
+        seen.add(cs);
+
+        const icon = planeIconFor(csRaw, heading);
+
+        /* --- Création ou mise à jour du marqueur --- */
+        if (!ADSB_MARKERS[cs]) {
+
+            ADSB_MARKERS[cs] = L.marker([lat, lon], { icon }).addTo(map);
+
+            // CLIC AVION → sélection + panneau info
+            ADSB_MARKERS[cs].on("click", () => {
+                SELECTED_PLANE = cs;
+                highlightSelectedPlane(cs);
+                showPlaneInfo(cs);
+            });
+
+        } else {
+            const m = ADSB_MARKERS[cs];
+            if (map.hasLayer(m)) {
+                m.setLatLng([lat, lon]);
+                m.setIcon(icon);
+            } else {
+                ADSB_MARKERS[cs] = L.marker([lat, lon], { icon }).addTo(map);
+            }
+        }
+
+        /* --- Stockage des infos avion pour le panneau --- */
+        const norm = normalizeCallsign(csRaw);
+        if (norm) {
+            ADSB_BY_CALLSIGN[norm] = {
+                icao: s[0],
+                callsign: csRaw,
+                lat,
+                lon,
+                altitude: s[13],
+                speed: s[9],
+                verticalRate: s[11],
+                heading: s[10],
+                onGround: s[8],
+                lastSeen: Date.now()
+            };
+        }
+    }
+
+    /* --- Suppression des avions disparus --- */
+    for (const k in ADSB_MARKERS) {
+        if (!seen.has(k)) {
+            map.removeLayer(ADSB_MARKERS[k]);
+            delete ADSB_MARKERS[k];
+        }
+    }
+
+    /* --- Mise à jour des trajectoires --- */
+    if (TRACKS_ENABLED) updateTracks(states);
+
+    /* --- Si avion sélectionné disparu → fermer panneau --- */
+    if (SELECTED_PLANE && !ADSB_MARKERS[SELECTED_PLANE]) {
+        SELECTED_PLANE = null;
+        hidePlaneInfo();
+    }
+}
+
+
 function highlightSelectedPlane(cs) {
     for (const k in TRACK_LAYERS) {
         if (k === cs) {
@@ -1777,6 +1881,7 @@ refresh();
 
 </body>
 </html>
+
 
 
 
