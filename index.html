@@ -348,23 +348,6 @@ const HEAD_TOL = 15; // tolérance en degrés pour le matching heading (ADS‑B 
 let lastHeading = null;
 let lastRunway = null;
 
-/* === CONSTANTES MANQUANTES === */
-/* (NE PAS redéclarer HEAD_TOL ici) */
-
-const RWY04_START = [50.63795, 5.4438];
-const RWY04_END   = [50.6436, 5.452];
-
-const RWY22_START = RWY04_END;
-const RWY22_END   = RWY04_START;
-
-const RWY04_EXT_POLY = [
-    computePoint(RWY04_START, -50, 0.03),
-    computePoint(RWY04_END,   -50, 0.03),
-    computePoint(RWY04_END,   130, 0.03),
-    computePoint(RWY04_START, 130, 0.03)
-];
-
-
 const RWY22_EXT_POLY = [
     computePoint(RWY22_START, 130, 0.03),
     computePoint(RWY22_END,   130, 0.03),
@@ -1881,6 +1864,7 @@ refresh();
 
 </body>
 </html>
+
 
 
 
