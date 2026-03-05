@@ -5,7 +5,7 @@
   <title>EBLG – Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Leaflet + Heatmap + PolylineDecorator (CDN sûrs) -->
+  <!-- Leaflet + Heatmap + PolylineDecorator -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
@@ -15,7 +15,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
 
-  <!-- CSS minimal -->
   <style>
     body { margin:0; font-family:system-ui; display:flex; flex-direction:column; height:100vh; }
     header { background:#111827; color:#f9fafb; padding:0.5rem 1rem; display:flex; justify-content:space-between; }
@@ -37,7 +36,6 @@
 </head>
 
 <body>
-
 <header>
   <div>EBLG Dashboard</div>
   <div>
@@ -60,36 +58,27 @@
     <div class="block"><h2>Détail vol</h2><div id="flight-detail"></div></div>
     <div class="block"><h2>Avion sélectionné</h2><div id="plane-info"></div></div>
   </section>
-
   <section id="map"></section>
 </main>
+
 <script>
-
 /* ============================================================================
-   1) CONFIGURATION GLOBALE — VERSION FINALE AVEC LES DONNÉES CORRECTES
+   1) CONFIGURATION GLOBALE
 ============================================================================ */
-
 const AVWX_TOKEN = "ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc";
 const AVWX_ICAO  = "EBLG";
 
-/* --- FIDS (via ton proxy Render) --- */
 const FIDS_PROXY = "https://eblg-proxy.onrender.com/fids?url=";
-
 const FIDS_URL_ARR = FIDS_PROXY + encodeURIComponent(
   "https://fids.liegeairport.com/api/flights/Arrivals"
 );
-
 const FIDS_URL_DEP = FIDS_PROXY + encodeURIComponent(
   "https://fids.liegeairport.com/api/flights/Departures"
 );
 
-/* --- ADS-B (OpenSky Network) --- */
 const ADSB_URL = "https://opensky-network.org/api/states/all";
+const HUB_URL  = "https://eblg.aerovision.cloud/EBLG/signalr-noise";
 
-/* --- Diapason (SignalR bruit temps réel) --- */
-const HUB_URL = "https://eblg.aerovision.cloud/EBLG/signalr-noise";
-
-/* --- Données EBLG --- */
 const EBLG = {
   lat: 50.6374,
   lon: 5.4432,
@@ -100,15 +89,15 @@ const EBLG = {
 };
 
 let FLT_FILTER = "ALL";
+const HEAD_TOL = 15;
+
 let lastHeading = null;
 let lastRunway  = null;
 let LAST_FIDS   = null;
 
-
 /* ============================================================================
-  2) SONOMETRES — Coordonnées réelles EBLG
+   SONOMETRES — Coordonnées réelles EBLG
 ============================================================================ */
-
 const SONOS = [
   { id: "F017", lat: 50.764883, lon: 5.630606 },
   { id: "F001", lat: 50.738044, lon: 5.608833 },
@@ -128,7 +117,6 @@ const SONOS = [
   { id: "F006", lat: 50.609594, lon: 5.271403 },
   { id: "F012", lat: 50.621917, lon: 5.254747 }
 ];
-
 
 const COLOR = {
   green: "#10b981",
@@ -222,16 +210,24 @@ const RWY22_EXT_POLY = [
 ];
 
 /* ============================================================================
-   6) CORRIDOR BRUIT
+   6) CORRIDOR / TRAPÈZES DÉPART & ARRIVÉE
 ============================================================================ */
-function buildCorridor(heading) {
+function buildDepartureTrapezoid(heading) {
   const origin = [EBLG.lat, EBLG.lon];
-  return [
-    computePoint(origin, heading - 90, 1.5),
-    computePoint(origin, heading + 90, 1.5),
-    computePoint(origin, heading + 90, 20),
-    computePoint(origin, heading - 90, 20)
-  ];
+  const nearLeft  = computePoint(origin, heading - 90, 1.0);
+  const nearRight = computePoint(origin, heading + 90, 1.0);
+  const farLeft   = computePoint(origin, heading - 90, 15.0);
+  const farRight  = computePoint(origin, heading + 90, 15.0);
+  return [nearLeft, nearRight, farRight, farLeft];
+}
+
+function buildArrivalTrapezoid(heading) {
+  const origin = [EBLG.lat, EBLG.lon];
+  const nearLeft  = computePoint(origin, heading - 90, 0.5);
+  const nearRight = computePoint(origin, heading + 90, 0.5);
+  const farLeft   = computePoint(origin, heading - 90, 5.0);
+  const farRight  = computePoint(origin, heading + 90, 5.0);
+  return [nearLeft, nearRight, farRight, farLeft];
 }
 
 /* ============================================================================
@@ -243,22 +239,24 @@ let TRACKS_ENABLED = true;
 let SONOS_ENABLED = true;
 
 let heatLayer = null;
-let corridorLayer = null;
+let departureLayer = null;
+let arrivalLayer = null;
+let departureArrow = null;
+let arrivalArrow = null;
+
 /* ============================================================================
    8) STRUCTURES INTERNES ADS‑B
 ============================================================================ */
-
-let ADSB_MARKERS = {};        // Marqueurs Leaflet par callsign
-let ADSB_BY_CALLSIGN = {};    // Dernière info avion par callsign
-let TRACK_HISTORY = {};       // Historique des positions pour les trajectoires
-let TRACK_LAYERS = {};        // Polylignes des trajectoires
-let TRACK_DECORATORS = {};    // Flèches directionnelles
-let SELECTED_PLANE = null;    // Callsign de l’avion sélectionné
+let ADSB_MARKERS = {};
+let ADSB_BY_CALLSIGN = {};
+let TRACK_HISTORY = {};
+let TRACK_LAYERS = {};
+let TRACK_DECORATORS = {};
+let SELECTED_PLANE = null;
 
 /* ============================================================================
    9) NORMALISATION DES CALLSIGNS
 ============================================================================ */
-
 function normalizeCallsign(t) {
   if (!t) return null;
   return String(t).trim().toUpperCase();
@@ -267,15 +265,11 @@ function normalizeCallsign(t) {
 /* ============================================================================
    10) ICÔNE AVION (SVG ROTATIF)
 ============================================================================ */
-
 const PLANE_ICON_SVG = `
 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
   <path d="M2.5 19l8.5-7-8.5-7v4.5l5 2.5-5 2.5V19zm9.5 0l8.5-7-8.5-7v4.5l5 2.5-5 2.5V19z"/>
 </svg>`;
 
-/**
- * Génère une icône Leaflet orientée selon le cap de l’avion.
- */
 function planeIconFor(track, color) {
   return L.divIcon({
     className: "plane-icon",
@@ -288,17 +282,15 @@ function planeIconFor(track, color) {
     iconAnchor: [12, 12]
   });
 }
+
 /* ============================================================================
    11) FETCH ADS‑B
 ============================================================================ */
-
 async function fetchADSB() {
   if (!ADSB_URL) return [];
-
   try {
     const r = await fetch(ADSB_URL);
     if (!r.ok) throw new Error("ADS-B HTTP " + r.status);
-
     const data = await r.json();
     return data.states || [];
   } catch (e) {
@@ -310,53 +302,46 @@ async function fetchADSB() {
 /* ============================================================================
    12) MISE À JOUR DES MARQUEURS ADS‑B
 ============================================================================ */
-
 function updateADSB(states) {
   const seen = new Set();
 
   states.forEach(s => {
-    const cs = normalizeCallsign(s.callsign || s.icao || s.hex);
-    if (!cs || !s.lat || !s.lon) return;
+    const cs = normalizeCallsign(s[1] || s[0]); // OpenSky: [0]=icao24, [1]=callsign
+    const lat = s[6];
+    const lon = s[5];
+    const heading = s[10] || 0;
+    if (!cs || lat == null || lon == null) return;
 
     seen.add(cs);
-
-    const pos = [s.lat, s.lon];
-    const heading = s.heading || s.track || 0;
+    const pos = [lat, lon];
     const color = "#f97316";
 
-    // Création du marqueur si nécessaire
     if (!ADSB_MARKERS[cs]) {
       const marker = L.marker(pos, { icon: planeIconFor({ heading }, color) }).addTo(map);
-
       marker.on("click", () => {
         SELECTED_PLANE = cs;
         showPlaneInfo(cs);
       });
-
       ADSB_MARKERS[cs] = marker;
     } else {
       ADSB_MARKERS[cs].setLatLng(pos);
       ADSB_MARKERS[cs].setIcon(planeIconFor({ heading }, color));
     }
 
-    // Mise à jour des infos avion
     ADSB_BY_CALLSIGN[cs] = {
       callsign: cs,
-      icao: s.icao || s.hex,
-      lat: s.lat,
-      lon: s.lon,
-      altitude: s.altitude || s.baro_altitude,
-      speed: s.speed || s.ground_speed,
-      verticalRate: s.vertical_rate,
+      icao: s[0],
+      lat,
+      lon,
+      altitude: s[7],
+      speed: s[9],
+      verticalRate: s[11],
       heading,
-      onGround: !!s.on_ground,
-      lastSeen: s.time || Date.now()
+      onGround: !!s[8],
+      lastSeen: Date.now()
     };
   });
 
-  /* -------------------------------------------------------------------------
-     Suppression des avions disparus
-  ------------------------------------------------------------------------- */
   Object.keys(ADSB_MARKERS).forEach(cs => {
     if (!seen.has(cs)) {
       map.removeLayer(ADSB_MARKERS[cs]);
@@ -380,15 +365,13 @@ function updateADSB(states) {
     }
   });
 
-  // Mise à jour des trajectoires (Bloc 3C)
   updateTracks(states);
 }
-/* ============================================================================
-   13) TRAJECTOIRES ADS‑B (HISTORIQUE + POLYLINES + FLÈCHES)
-============================================================================ */
 
+/* ============================================================================
+   13) TRAJECTOIRES ADS‑B
+============================================================================ */
 function updateTracks(states) {
-  // Si les trajectoires sont désactivées, on nettoie tout
   if (!TRACKS_ENABLED) {
     Object.values(TRACK_LAYERS).forEach(l => map.removeLayer(l));
     Object.values(TRACK_DECORATORS).forEach(d => map.removeLayer(d));
@@ -399,17 +382,15 @@ function updateTracks(states) {
   }
 
   states.forEach(s => {
-    const cs = normalizeCallsign(s.callsign || s.icao || s.hex);
-    if (!cs || !s.lat || !s.lon) return;
+    const cs = normalizeCallsign(s[1] || s[0]);
+    const lat = s[6];
+    const lon = s[5];
+    if (!cs || lat == null || lon == null) return;
 
-    // Historique des positions
     if (!TRACK_HISTORY[cs]) TRACK_HISTORY[cs] = [];
-    TRACK_HISTORY[cs].push([s.lat, s.lon]);
-
-    // Limite de l’historique (60 points ≈ 5 minutes)
+    TRACK_HISTORY[cs].push([lat, lon]);
     if (TRACK_HISTORY[cs].length > 60) TRACK_HISTORY[cs].shift();
 
-    // Suppression de l’ancienne trajectoire
     if (TRACK_LAYERS[cs]) {
       map.removeLayer(TRACK_LAYERS[cs]);
       delete TRACK_LAYERS[cs];
@@ -419,16 +400,13 @@ function updateTracks(states) {
       delete TRACK_DECORATORS[cs];
     }
 
-    // Nouvelle polyline
     const poly = L.polyline(TRACK_HISTORY[cs], {
       color: "#2563eb",
       weight: 2,
       opacity: 0.7
     }).addTo(map);
-
     TRACK_LAYERS[cs] = poly;
 
-    // Flèche directionnelle (PolylineDecorator)
     const decorator = L.polylineDecorator(poly, {
       patterns: [
         {
@@ -442,17 +420,13 @@ function updateTracks(states) {
         }
       ]
     }).addTo(map);
-
     TRACK_DECORATORS[cs] = decorator;
   });
 }
-/* ============================================================================
-   14) PANNEAU D’INFORMATION – AVION SÉLECTIONNÉ
-============================================================================ */
 
-/**
- * Affiche les informations détaillées d’un avion sélectionné.
- */
+/* ============================================================================
+   14) PANNEAU AVION SÉLECTIONNÉ
+============================================================================ */
 function showPlaneInfo(cs) {
   const info = ADSB_BY_CALLSIGN[cs];
   const box = document.getElementById("plane-info");
@@ -462,7 +436,6 @@ function showPlaneInfo(cs) {
     return;
   }
 
-  // Couleur dynamique basée sur le cap
   const hue = (info.heading || 0) % 360;
   const color = `hsl(${hue}, 80%, 55%)`;
 
@@ -476,7 +449,6 @@ function showPlaneInfo(cs) {
       </span>
       ${info.callsign || info.icao}
     </div>
-
     Latitude : ${info.lat?.toFixed(4)}<br>
     Longitude : ${info.lon?.toFixed(4)}<br>
     Altitude : ${info.altitude ? info.altitude + " ft" : "N/A"}<br>
@@ -488,17 +460,14 @@ function showPlaneInfo(cs) {
   `;
 }
 
-/**
- * Masque le panneau avion.
- */
 function hidePlaneInfo() {
   const box = document.getElementById("plane-info");
   box.style.display = "none";
 }
+
 /* ============================================================================
    15) METAR
 ============================================================================ */
-
 async function fetchMetar() {
   if (!AVWX_TOKEN) return null;
   try {
@@ -529,12 +498,10 @@ function updateMetarUI(m) {
 }
 
 /* ============================================================================
-   16) FIDS — Version GET compatible avec ton proxy Render
+   16) FIDS — Version GET
 ============================================================================ */
-
 async function fetchFIDS() {
   try {
-    // Appels directs GET via ton proxy Render
     const rArr = await fetch(FIDS_URL_ARR);
     const rDep = await fetch(FIDS_URL_DEP);
 
@@ -552,20 +519,16 @@ async function fetchFIDS() {
     };
 
     return LAST_FIDS;
-
   } catch (e) {
     console.warn("Erreur FIDS :", e);
     return { arrivals: [], departures: [] };
   }
 }
 
-
-
 function updateFlightsUI(fids) {
   const box = document.getElementById("flights-list");
   const arr = fids.arrivals || [];
   const dep = fids.departures || [];
-
   const list = [...arr, ...dep];
 
   if (!list.length) {
@@ -616,12 +579,10 @@ function showFlightDetail(id) {
 }
 
 /* ============================================================================
-   17) LOGIQUE PISTE (METAR + FIDS)
+   17) LOGIQUE PISTE
 ============================================================================ */
-
 function extractRunway(fids) {
   const list = [...(fids.arrivals || []), ...(fids.departures || [])];
-
   for (const v of list) {
     if (v.runway) {
       const n = v.runway.replace(/[^0-9]/g, "");
@@ -634,7 +595,6 @@ function extractRunway(fids) {
 
 function runwayFromMetar(m) {
   if (!m || !m.wind_direction?.value) return null;
-
   const dir = m.wind_direction.value;
   let best = null;
 
@@ -651,7 +611,6 @@ function runwayFromMetar(m) {
 /* ============================================================================
    18) COLORATION DES SONOMETRES
 ============================================================================ */
-
 function updateSonoColors(runwayName) {
   const impacted = [];
 
@@ -674,21 +633,18 @@ function updateSonoColors(runwayName) {
 /* ============================================================================
    19) HEATMAP BRUIT
 ============================================================================ */
-
 function computeImpacted(heading) {
   const poly =
     heading === RWY04_HEADING ? RWY04_EXT_POLY :
     heading === RWY22_HEADING ? RWY22_EXT_POLY :
-    buildCorridor(heading);
+    buildDepartureTrapezoid(heading);
 
   const impacted = [];
-
   SONOS.forEach(s => {
     if (pointInPolygon([s.lat, s.lon], poly)) {
       impacted.push([s.lat, s.lon, 1]);
     }
   });
-
   return impacted;
 }
 
@@ -698,39 +654,93 @@ function updateHeatmap(list) {
     heatLayer = null;
   }
   if (!HEATMAP_ENABLED || !list.length) return;
-
   heatLayer = L.heatLayer(list, { radius: 25, blur: 15, maxZoom: 15 }).addTo(map);
 }
 
 /* ============================================================================
-   20) CORRIDOR BRUIT (AFFICHAGE)
+   20) TRAPÈZES DÉPART & ARRIVÉE + FLÈCHES
 ============================================================================ */
-
 function updateCorridor() {
-  if (corridorLayer) {
-    map.removeLayer(corridorLayer);
-    corridorLayer = null;
-  }
+  if (departureLayer) { map.removeLayer(departureLayer); departureLayer = null; }
+  if (arrivalLayer)   { map.removeLayer(arrivalLayer);   arrivalLayer = null; }
+  if (departureArrow) { map.removeLayer(departureArrow); departureArrow = null; }
+  if (arrivalArrow)   { map.removeLayer(arrivalArrow);   arrivalArrow = null; }
 
   if (!CORRIDOR_ENABLED || !lastHeading) return;
 
-  const poly = buildCorridor(lastHeading);
+  const depPoly = buildDepartureTrapezoid(lastHeading);
+  const arrPoly = buildArrivalTrapezoid((lastHeading + 180) % 360);
 
-  corridorLayer = L.polygon(poly, {
+  departureLayer = L.polygon(depPoly, {
     color: "#f97316",
     weight: 1,
-    fillOpacity: 0.08
+    fillOpacity: 0.12
+  }).addTo(map);
+
+  arrivalLayer = L.polygon(arrPoly, {
+    color: "#2563eb",
+    weight: 1,
+    fillOpacity: 0.12
+  }).addTo(map);
+
+  const depCenterLine = [
+    computePoint([EBLG.lat, EBLG.lon], lastHeading, 1.0),
+    computePoint([EBLG.lat, EBLG.lon], lastHeading, 8.0)
+  ];
+  const arrCenterLine = [
+    computePoint([EBLG.lat, EBLG.lon], (lastHeading + 180) % 360, 1.0),
+    computePoint([EBLG.lat, EBLG.lon], (lastHeading + 180) % 360, 4.0)
+  ];
+
+  const depLine = L.polyline(depCenterLine, { color: "#f97316", weight: 0 }).addTo(map);
+  const arrLine = L.polyline(arrCenterLine, { color: "#2563eb", weight: 0 }).addTo(map);
+
+  departureArrow = L.polylineDecorator(depLine, {
+    patterns: [{
+      offset: "100%",
+      repeat: 0,
+      symbol: L.Symbol.arrowHead({
+        pixelSize: 12,
+        polygon: true,
+        pathOptions: { color: "#f97316", weight: 2, fillOpacity: 1 }
+      })
+    }]
+  }).addTo(map);
+
+  arrivalArrow = L.polylineDecorator(arrLine, {
+    patterns: [{
+      offset: "100%",
+      repeat: 0,
+      symbol: L.Symbol.arrowHead({
+        pixelSize: 10,
+        polygon: true,
+        pathOptions: { color: "#2563eb", weight: 2, fillOpacity: 1 }
+      })
+    }]
   }).addTo(map);
 }
 
 /* ============================================================================
    21) DIAPASON (BRUIT TEMPS RÉEL)
 ============================================================================ */
-
 const SENSOR_MAP = {
   "F017": "F017",
-  "F018": "F018",
-  "F019": "F019"
+  "F001": "F001",
+  "F014": "F014",
+  "F015": "F015",
+  "F005": "F005",
+  "F003": "F003",
+  "F011": "F011",
+  "F008": "F008",
+  "F002": "F002",
+  "F007": "F007",
+  "F009": "F009",
+  "F004": "F004",
+  "F010": "F010",
+  "F013": "F013",
+  "F016": "F016",
+  "F006": "F006",
+  "F012": "F012"
 };
 
 let LIVE_NOISE = {};
@@ -781,7 +791,6 @@ if (HUB_URL) {
 /* ============================================================================
    22) ALERTES METEO
 ============================================================================ */
-
 function computeAlerts(metar, rw) {
   const box = document.getElementById("alerts");
   const alerts = [];
@@ -816,21 +825,14 @@ function computeAlerts(metar, rw) {
 }
 
 /* ============================================================================
-   23) DETECTION DECOLLAGES (HOOKS MINIMAUX)
+   23) DETECTION DECOLLAGES (HOOKS)
 ============================================================================ */
-
-function detectTakeoff04(states) {
-  // Hook minimal — prêt pour logique avancée
-}
-
-function detectTakeoff22(states) {
-  // Hook minimal — prêt pour logique avancée
-}
+function detectTakeoff04(states) {}
+function detectTakeoff22(states) {}
 
 /* ============================================================================
    24) TOGGLES UI
 ============================================================================ */
-
 document.getElementById("toggle-tracks").onclick = () => {
   TRACKS_ENABLED = !TRACKS_ENABLED;
   document.getElementById("toggle-tracks").textContent =
@@ -881,7 +883,6 @@ document.getElementById("reset-map").onclick = () => {
 /* ============================================================================
    25) BOUCLE DE RAFRAÎCHISSEMENT
 ============================================================================ */
-
 async function refresh() {
   const metar = await fetchMetar();
   updateMetarUI(metar);
@@ -908,7 +909,6 @@ async function refresh() {
   updateHeatmap(impacted);
 
   updateCorridor();
-
   computeAlerts(metar, rw);
 
   const adsb = await fetchADSB();
@@ -924,7 +924,3 @@ refresh();
 
 </body>
 </html>
-
-
-
-
