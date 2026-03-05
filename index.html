@@ -347,16 +347,7 @@ const HEAD_TOL = 15; // tolérance en degrés pour le matching heading (ADS‑B 
 
 let lastHeading = null;
 let lastRunway = null;
-
-const RWY22_EXT_POLY = [
-    computePoint(RWY22_START, 130, 0.03),
-    computePoint(RWY22_END,   130, 0.03),
-    computePoint(RWY22_END,   -50, 0.03),
-    computePoint(RWY22_START, -50, 0.03)
-];
-
-    
-let ADSB_BY_CALLSIGN = {};
+   
 let LAST_FIDS = null;
 /* ▴ END SECTION: CONFIGURATION GLOBALE =================================================== */
 
@@ -542,7 +533,9 @@ function pointInPolygon([x,y], poly){
   Polygones utilisés pour :
   - détection roulage / rotation / montée initiale
   - coloration corridor
+  - heatmap étendue
 */
+
 const RWY04_START = [50.63795, 5.4438];
 const RWY04_END   = [50.6436,  5.452];
 const RWY04_HEADING = 40;
@@ -553,19 +546,45 @@ const RWY22_HEADING = 220;
 
 /* Polygones larges représentant la bande de piste */
 const RWY04_POLY = [
-  computePoint(RWY04_START, RWY04_HEADING-90, 0.03),
-  computePoint(RWY04_END,   RWY04_HEADING-90, 0.03),
-  computePoint(RWY04_END,   RWY04_HEADING+90, 0.03),
-  computePoint(RWY04_START, RWY04_HEADING+90, 0.03)
+  computePoint(RWY04_START, RWY04_HEADING - 90, 0.03),
+  computePoint(RWY04_END,   RWY04_HEADING - 90, 0.03),
+  computePoint(RWY04_END,   RWY04_HEADING + 90, 0.03),
+  computePoint(RWY04_START, RWY04_HEADING + 90, 0.03)
 ];
 
 const RWY22_POLY = [
-  computePoint(RWY22_START, RWY22_HEADING-90, 0.03),
-  computePoint(RWY22_END,   RWY22_HEADING-90, 0.03),
-  computePoint(RWY22_END,   RWY22_HEADING+90, 0.03),
-  computePoint(RWY22_START, RWY22_HEADING+90, 0.03)
+  computePoint(RWY22_START, RWY22_HEADING - 90, 0.03),
+  computePoint(RWY22_END,   RWY22_HEADING - 90, 0.03),
+  computePoint(RWY22_END,   RWY22_HEADING + 90, 0.03),
+  computePoint(RWY22_START, RWY22_HEADING + 90, 0.03)
 ];
+
+/* ▾ SECTION: RUNWAY EXTENDED POLYGONES (HEATMAP) ========================================= */
+/*
+  Polygones étendus utilisés pour :
+  - heatmap
+  - sélection des sonomètres impactés
+  Largeur progressive cohérente avec le corridor bruit :
+  - 1.5 km au départ
+  - 3.5 km à 20 km
+*/
+
+const RWY04_EXT_POLY = [
+    computePoint(RWY04_START, RWY04_HEADING - 90, 1.5),
+    computePoint(RWY04_END,   RWY04_HEADING - 90, 3.5),
+    computePoint(RWY04_END,   RWY04_HEADING + 90, 3.5),
+    computePoint(RWY04_START, RWY04_HEADING + 90, 1.5)
+];
+
+const RWY22_EXT_POLY = [
+    computePoint(RWY22_START, RWY22_HEADING - 90, 1.5),
+    computePoint(RWY22_END,   RWY22_HEADING - 90, 3.5),
+    computePoint(RWY22_END,   RWY22_HEADING + 90, 3.5),
+    computePoint(RWY22_START, RWY22_HEADING + 90, 1.5)
+];
+
 /* ▴ END SECTION: RUNWAYS ================================================================= */
+
 
 
 
@@ -1686,164 +1705,46 @@ function updateSonometersVisibility(){
   - F017 icon
 */
 async function refresh(){
+  // --- METAR ---
   const metar = await fetchMetar().catch(()=>null);
-  if(metar) updateMetarUI(metar);
+  if (metar) updateMetarUI(metar);
 
+  // --- FIDS ---
   const fids = await fetchFIDS().catch(()=>({arrivals:[],departures:[]}));
   updateFlightsUI(fids);
 
+  // --- Piste active (FIDS → METAR fallback) ---
   const rwF = extractRunway(fids);
   const rwM = runwayFromMetar(metar);
   const rw  = rwF || rwM;
 
-  if(rw){
+  if (rw) {
     lastHeading = rw.heading;
     document.getElementById("runway-info").textContent =
       `Piste active : ${rw.name} (cap ${rw.heading}°)`;
-  }else{
+  } else {
     document.getElementById("runway-info").textContent = "Piste active : inconnue";
   }
 
-  const phase = FLT_FILTER==="ARR" ? "ARR" : "DEP";
-  if(rw) updateSonoColors(rw.name, phase);
+  // --- Coloration sonomètres ---
+  const phase = FLT_FILTER === "ARR" ? "ARR" : "DEP";
+  if (rw) updateSonoColors(rw.name, phase);
 
+  // --- Heatmap ---
   const impacted = rw ? computeImpacted(rw.heading) : [];
   updateHeatmap(impacted);
 
-  if(rw) updateCorridor();
+  // --- Corridor bruit ---
+  if (rw) updateCorridor();
 
+  // --- Alertes météo ---
   computeAlerts(metar, rw);
 
+  // --- ADS‑B ---
   const adsb = await fetchADSB().catch(()=>[]);
   updateADSB(adsb);
-
-  function updateADSB(states){
-    if (!Array.isArray(states)) return;
-
-    const seen = new Set();
-
-    for (const s of states) {
-        if (!s) continue;
-
-        const csRaw = (s[1] || "").trim();
-        const cs = csRaw || s[0] || "UNK";
-
-        const lon = s[5];
-        const lat = s[6];
-        const heading = s[10];
-
-        // Données invalides → on ignore
-        if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) continue;
-        if (lat === 0 && lon === 0) continue;
-
-        seen.add(cs);
-
-        const icon = planeIconFor(csRaw, heading);
-
-        /* --- Création ou mise à jour du marqueur --- */
-        if (!ADSB_MARKERS[cs]) {
-
-            ADSB_MARKERS[cs] = L.marker([lat, lon], { icon }).addTo(map);
-
-            // CLIC AVION → sélection + panneau info
-            ADSB_MARKERS[cs].on("click", () => {
-                SELECTED_PLANE = cs;
-                highlightSelectedPlane(cs);
-                showPlaneInfo(cs);
-            });
-
-        } else {
-            const m = ADSB_MARKERS[cs];
-            if (map.hasLayer(m)) {
-                m.setLatLng([lat, lon]);
-                m.setIcon(icon);
-            } else {
-                ADSB_MARKERS[cs] = L.marker([lat, lon], { icon }).addTo(map);
-            }
-        }
-
-        /* --- Stockage des infos avion pour le panneau --- */
-        const norm = normalizeCallsign(csRaw);
-        if (norm) {
-            ADSB_BY_CALLSIGN[norm] = {
-                icao: s[0],
-                callsign: csRaw,
-                lat,
-                lon,
-                altitude: s[13],
-                speed: s[9],
-                verticalRate: s[11],
-                heading: s[10],
-                onGround: s[8],
-                lastSeen: Date.now()
-            };
-        }
-    }
-
-    /* --- Suppression des avions disparus --- */
-    for (const k in ADSB_MARKERS) {
-        if (!seen.has(k)) {
-            map.removeLayer(ADSB_MARKERS[k]);
-            delete ADSB_MARKERS[k];
-        }
-    }
-
-    /* --- Mise à jour des trajectoires --- */
-    if (TRACKS_ENABLED) updateTracks(states);
-
-    /* --- Si avion sélectionné disparu → fermer panneau --- */
-    if (SELECTED_PLANE && !ADSB_MARKERS[SELECTED_PLANE]) {
-        SELECTED_PLANE = null;
-        hidePlaneInfo();
-    }
 }
 
-
-function highlightSelectedPlane(cs) {
-    for (const k in TRACK_LAYERS) {
-        if (k === cs) {
-            TRACK_LAYERS[k].setStyle({ weight: 6, opacity: 1 });
-            if (TRACK_DECORATORS[k]) TRACK_DECORATORS[k].setOpacity(1);
-        } else {
-            TRACK_LAYERS[k].setStyle({ weight: 2, opacity: 0.3 });
-            if (TRACK_DECORATORS[k]) TRACK_DECORATORS[k].setOpacity(0.3);
-        }
-    }
-}
-
-function showPlaneInfo(cs) {
-    const norm = normalizeCallsign(cs);
-    const info = ADSB_BY_CALLSIGN[norm];
-    const box = document.getElementById("plane-info");
-
-    if (!info) {
-        box.style.display = "none";
-        return;
-    }
-
-    // Couleur dynamique selon heading
-    const hue = (info.heading || 0) % 360;
-    const color = `hsl(${hue}, 80%, 55%)`;
-    box.style.borderLeftColor = color;
-
-    box.style.display = "block";
-
-    box.innerHTML = `
-        <div class="title">
-            <span style="color:${color};">${PLANE_ICON_SVG}</span>
-            ${info.callsign || info.icao}
-        </div>
-
-        Latitude : ${info.lat?.toFixed(4)}<br>
-        Longitude : ${info.lon?.toFixed(4)}<br>
-        Altitude : ${info.altitude ? info.altitude + " ft" : "N/A"}<br>
-        Vitesse sol : ${info.speed ? info.speed + " kt" : "N/A"}<br>
-        Taux montée/descente : ${info.verticalRate ? info.verticalRate + " ft/min" : "N/A"}<br>
-        Cap : ${info.heading ? info.heading + "°" : "N/A"}<br>
-        Sol : ${info.onGround ? "Oui" : "Non"}<br>
-        Dernière mise à jour : ${new Date(info.lastSeen).toLocaleTimeString()}<br>
-    `;
-}
 
 /* ▴ END SECTION: MAIN LOOP ================================================================ */
 
@@ -1864,13 +1765,3 @@ refresh();
 
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
