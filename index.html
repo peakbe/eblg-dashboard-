@@ -64,19 +64,32 @@
   <section id="map"></section>
 </main>
 <script>
+
 /* ============================================================================
-   1) CONFIGURATION GLOBALE
+   1) CONFIGURATION GLOBALE — VERSION FINALE AVEC TES DONNÉES
 ============================================================================ */
-const AVWX_TOKEN = "ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc";          // Token AVWX (optionnel)
+
+const AVWX_TOKEN = "ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc";
 const AVWX_ICAO  = "EBLG";
 
-const FIDS_PROXY = "https://eblg-proxy.onrender.com/fids?url=";          // Proxy JSON (POST)
-const FIDS_URL_ARR = "https://fids.liegeairport.com/api/flights/Arrivals";        // URL FIDS Arrivées
-const FIDS_URL_DEP = "https://fids.liegeairport.com/api/flights/Departures";        // URL FIDS Départs
+/* --- FIDS (via ton proxy Render) --- */
+const FIDS_PROXY = "https://eblg-proxy.onrender.com/fids?url=";
 
-const ADSB_URL = "";            // Backend ADS-B (JSON)
-const HUB_URL = "";             // Diapason SignalR
+const FIDS_URL_ARR = FIDS_PROXY + encodeURIComponent(
+  "https://fids.liegeairport.com/api/flights/Arrivals"
+);
 
+const FIDS_URL_DEP = FIDS_PROXY + encodeURIComponent(
+  "https://fids.liegeairport.com/api/flights/Departures"
+);
+
+/* --- ADS-B (OpenSky Network) --- */
+const ADSB_URL = "https://opensky-network.org/api/states/all";
+
+/* --- Diapason (SignalR bruit temps réel) --- */
+const HUB_URL = "https://eblg.aerovision.cloud/EBLG/signalr-noise";
+
+/* --- Données EBLG --- */
 const EBLG = {
   lat: 50.6374,
   lon: 5.4432,
@@ -87,11 +100,10 @@ const EBLG = {
 };
 
 let FLT_FILTER = "ALL";
-const HEAD_TOL = 15;
-
 let lastHeading = null;
 let lastRunway  = null;
 let LAST_FIDS   = null;
+
 
 /* ============================================================================
    2) SONOMETRES (LISTE MINIMALE)
@@ -888,4 +900,5 @@ refresh();
 
 </body>
 </html>
+
 
