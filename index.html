@@ -106,13 +106,29 @@ let LAST_FIDS   = null;
 
 
 /* ============================================================================
-   2) SONOMETRES (LISTE MINIMALE)
+  2) SONOMETRES — Coordonnées réelles EBLG
 ============================================================================ */
+
 const SONOS = [
-  { id: "F017", lat: 50.6500, lon: 5.4500 },
-  { id: "F018", lat: 50.6400, lon: 5.4400 },
-  { id: "F019", lat: 50.6300, lon: 5.4600 }
+  { id: "F017", lat: 50.764883, lon: 5.630606 },
+  { id: "F001", lat: 50.738044, lon: 5.608833 },
+  { id: "F014", lat: 50.718894, lon: 5.573164 },
+  { id: "F015", lat: 50.688839, lon: 5.526217 },
+  { id: "F005", lat: 50.639331, lon: 5.323519 },
+  { id: "F003", lat: 50.601167, lon: 5.381400 },
+  { id: "F011", lat: 50.601142, lon: 5.355006 },
+  { id: "F008", lat: 50.594878, lon: 5.358950 },
+  { id: "F002", lat: 50.588414, lon: 5.370522 },
+  { id: "F007", lat: 50.590756, lon: 5.344114 },
+  { id: "F009", lat: 50.580831, lon: 5.355417 },
+  { id: "F004", lat: 50.605414, lon: 5.321406 },
+  { id: "F010", lat: 50.599392, lon: 5.313492 },
+  { id: "F013", lat: 50.586914, lon: 5.308678 },
+  { id: "F016", lat: 50.619617, lon: 5.295344 },
+  { id: "F006", lat: 50.609594, lon: 5.271403 },
+  { id: "F012", lat: 50.621917, lon: 5.254747 }
 ];
+
 
 const COLOR = {
   green: "#10b981",
@@ -517,25 +533,22 @@ function updateMetarUI(m) {
 ============================================================================ */
 
 async function fetchFIDS() {
-  if (!FIDS_PROXY) return { arrivals: [], departures: [] };
-
   try {
-    const r = await fetch(FIDS_PROXY, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ arr: FIDS_URL_ARR, dep: FIDS_URL_DEP })
-    });
+    const rArr = await fetch(FIDS_URL_ARR);
+    const rDep = await fetch(FIDS_URL_DEP);
 
-    if (!r.ok) throw new Error("FIDS HTTP " + r.status);
+    const arr = await rArr.json();
+    const dep = await rDep.json();
 
-    const data = await r.json();
-    LAST_FIDS = data;
-    return data;
+    LAST_FIDS = { arrivals: arr, departures: dep };
+    return LAST_FIDS;
+
   } catch (e) {
     console.warn("Erreur FIDS :", e);
     return { arrivals: [], departures: [] };
   }
 }
+
 
 function updateFlightsUI(fids) {
   const box = document.getElementById("flights-list");
@@ -900,5 +913,6 @@ refresh();
 
 </body>
 </html>
+
 
 
