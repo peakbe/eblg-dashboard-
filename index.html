@@ -2,124 +2,37 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>EBLG – FIDS, METAR, Bruit, ADS‑B & Sonomètres</title>
+  <title>EBLG – Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Leaflet & libs -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+  <!-- Leaflet + Heatmap + PolylineDecorator (CDN sûrs) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polylinedecorator/1.7.0/leaflet.polylineDecorator.min.js"></script>
+
+  <!-- Chart.js + SignalR -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
-  <script src="https://unpkg.com/leaflet-polylinedecorator@1.7.0/dist/leaflet.polylineDecorator.js"></script>
 
   <!-- CSS minimal -->
   <style>
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-    header {
-      background: #111827;
-      color: #f9fafb;
-      padding: 0.5rem 1rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-      font-size: 0.9rem;
-    }
-    header button {
-      margin-left: 0.25rem;
-      padding: 0.25rem 0.5rem;
-      font-size: 0.8rem;
-      border-radius: 4px;
-      border: 1px solid #4b5563;
-      background: #1f2937;
-      color: #e5e7eb;
-      cursor: pointer;
-    }
-    header button:hover {
-      background: #374151;
-    }
-    main {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-    #sidebar {
-      width: 340px;
-      max-width: 40vw;
-      overflow-y: auto;
-      background: #f3f4f6;
-      padding: 0.75rem;
-      border-right: 1px solid #d1d5db;
-      font-size: 0.85rem;
-    }
-    #map {
-      flex: 1;
-    }
-    .block {
-      margin-bottom: 1rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .block h2 {
-      margin: 0 0 0.25rem 0;
-      font-size: 0.95rem;
-      color: #111827;
-    }
-    #plane-info {
-      border-left: 4px solid #6b7280;
-      background: #ffffff;
-      padding: 0.5rem;
-      font-size: 0.8rem;
-    }
-    #flights-list table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.8rem;
-    }
-    #flights-list th, #flights-list td {
-      border-bottom: 1px solid #e5e7eb;
-      padding: 0.15rem 0.25rem;
-      text-align: left;
-    }
-    #flights-list tr:hover {
-      background: #e5e7eb;
-      cursor: pointer;
-    }
-    .badge {
-      display: inline-block;
-      padding: 0.05rem 0.3rem;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      background: #e5e7eb;
-      color: #111827;
-    }
-    .noise-item {
-      margin-bottom: 0.25rem;
-    }
-    .noise-value {
-      font-weight: 600;
-    }
-    .alert {
-      margin-bottom: 0.25rem;
-      padding: 0.25rem 0.35rem;
-      border-radius: 4px;
-      font-size: 0.8rem;
-    }
-    .alert.warn {
-      background: #fef3c7;
-      color: #92400e;
-    }
-    .alert.danger {
-      background: #fee2e2;
-      color: #991b1b;
-    }
+    body { margin:0; font-family:system-ui; display:flex; flex-direction:column; height:100vh; }
+    header { background:#111827; color:#f9fafb; padding:0.5rem 1rem; display:flex; justify-content:space-between; }
+    header button { margin-left:0.25rem; padding:0.25rem 0.5rem; background:#1f2937; color:#e5e7eb; border:1px solid #4b5563; border-radius:4px; cursor:pointer; }
+    main { display:flex; flex:1; overflow:hidden; }
+    #sidebar { width:340px; background:#f3f4f6; padding:0.75rem; overflow-y:auto; border-right:1px solid #d1d5db; }
+    #map { flex:1; }
+    .block { margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid #e5e7eb; }
+    .block h2 { margin:0 0 0.25rem 0; font-size:0.95rem; }
+    #plane-info { display:none; border-left:4px solid #6b7280; background:#fff; padding:0.5rem; }
+    table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+    th,td { border-bottom:1px solid #e5e7eb; padding:0.15rem 0.25rem; }
+    tr:hover { background:#e5e7eb; cursor:pointer; }
+    .badge { padding:0.05rem 0.3rem; border-radius:999px; background:#e5e7eb; }
+    .alert { padding:0.25rem; border-radius:4px; margin-bottom:0.25rem; font-size:0.8rem; }
+    .alert.warn { background:#fef3c7; color:#92400e; }
+    .alert.danger { background:#fee2e2; color:#991b1b; }
   </style>
 </head>
 
@@ -128,7 +41,7 @@
 <header>
   <div>EBLG Dashboard</div>
   <div>
-    <button id="toggle-tracks">Trajectoires ADS‑B : ON</button>
+    <button id="toggle-tracks">Trajectoires : ON</button>
     <button id="toggle-heatmap">Heatmap : ON</button>
     <button id="toggle-corridor">Corridor : ON</button>
     <button id="toggle-sonos">Sonomètres : ON</button>
@@ -138,62 +51,30 @@
 
 <main>
   <section id="sidebar">
-    <div class="block">
-      <h2>Météo EBLG</h2>
-      <div id="meteo-summary"></div>
-      <div id="meteo-raw"></div>
-    </div>
-
-    <div class="block">
-      <h2>Piste & couloir bruit</h2>
-      <div id="runway-info"></div>
-    </div>
-
-    <div class="block">
-      <h2>Sonomètres impactés</h2>
-      <div id="sonos-impacted"></div>
-    </div>
-
-    <div class="block">
-      <h2>Bruit en temps réel</h2>
-      <div id="noise-live"></div>
-    </div>
-
-    <div class="block">
-      <h2>Alertes</h2>
-      <div id="alerts"></div>
-    </div>
-
-    <div class="block">
-      <h2>Vols (FIDS)</h2>
-      <div id="flights-list"></div>
-    </div>
-
-    <div class="block">
-      <h2>Détail du vol</h2>
-      <div id="flight-detail"></div>
-    </div>
-
-    <div class="block">
-      <h2>Avion sélectionné</h2>
-      <div id="plane-info" style="display:none;"></div>
-    </div>
+    <div class="block"><h2>Météo</h2><div id="meteo-summary"></div><div id="meteo-raw"></div></div>
+    <div class="block"><h2>Piste active</h2><div id="runway-info"></div></div>
+    <div class="block"><h2>Sonomètres impactés</h2><div id="sonos-impacted"></div></div>
+    <div class="block"><h2>Bruit temps réel</h2><div id="noise-live"></div></div>
+    <div class="block"><h2>Alertes</h2><div id="alerts"></div></div>
+    <div class="block"><h2>Vols (FIDS)</h2><div id="flights-list"></div></div>
+    <div class="block"><h2>Détail vol</h2><div id="flight-detail"></div></div>
+    <div class="block"><h2>Avion sélectionné</h2><div id="plane-info"></div></div>
   </section>
 
   <section id="map"></section>
 </main>
-
 <script>
 /* ============================================================================
    1) CONFIGURATION GLOBALE
 ============================================================================ */
-
-const AVWX_TOKEN = "";          // à compléter
+const AVWX_TOKEN = "";          // Token AVWX (optionnel)
 const AVWX_ICAO  = "EBLG";
-const FIDS_PROXY = "";          // à compléter (proxy JSON)
-const FIDS_URL_ARR = "";        // à compléter
-const FIDS_URL_DEP = "";        // à compléter
-const ADSB_URL = "";            // à compléter (backend ADS-B)
+
+const FIDS_PROXY = "";          // Proxy JSON (POST)
+const FIDS_URL_ARR = "";        // URL FIDS Arrivées
+const FIDS_URL_DEP = "";        // URL FIDS Départs
+
+const ADSB_URL = "";            // Backend ADS-B (JSON)
 const HUB_URL = "";             // Diapason SignalR
 
 const EBLG = {
@@ -213,14 +94,12 @@ let lastRunway  = null;
 let LAST_FIDS   = null;
 
 /* ============================================================================
-   2) SONOMETRES (LISTE MINIMALE + COULEURS)
+   2) SONOMETRES (LISTE MINIMALE)
 ============================================================================ */
-
 const SONOS = [
-  // Exemple minimal – à adapter à ta liste réelle
-  { id: "F017", name: "F017", lat: 50.65, lon: 5.45 },
-  { id: "F018", name: "F018", lat: 50.64, lon: 5.44 },
-  { id: "F019", name: "F019", lat: 50.63, lon: 5.46 }
+  { id: "F017", lat: 50.6500, lon: 5.4500 },
+  { id: "F018", lat: 50.6400, lon: 5.4400 },
+  { id: "F019", lat: 50.6300, lon: 5.4600 }
 ];
 
 const COLOR = {
@@ -229,15 +108,9 @@ const COLOR = {
   gray:  "#6b7280"
 };
 
-const SONO_RULES = {
-  // Exemple simple : seuils génériques
-  default: { warn: 65, danger: 75 }
-};
-
 /* ============================================================================
-   3) MAP INITIALISATION
+   3) INITIALISATION DE LA CARTE
 ============================================================================ */
-
 const map = L.map("map").setView([EBLG.lat, EBLG.lon], 11);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -253,14 +126,13 @@ SONOS.forEach(s => {
     fillColor: "#9ca3af",
     fillOpacity: 0.9
   }).addTo(map);
-  m.bindPopup(`${s.name}`);
+  m.bindPopup(s.id);
   SONO_MARKERS[s.id] = m;
 });
 
 /* ============================================================================
    4) OUTILS GEOMETRIQUES
 ============================================================================ */
-
 function toRad(d) { return d * Math.PI / 180; }
 function toDeg(r) { return r * 180 / Math.PI; }
 
@@ -271,46 +143,17 @@ function computePoint([lat, lon], headingDeg, distanceKm) {
   const lat1 = toRad(lat);
   const lon1 = toRad(lon);
 
-  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(dR) +
-                         Math.cos(lat1) * Math.sin(dR) * Math.cos(brng));
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(dR) +
+    Math.cos(lat1) * Math.sin(dR) * Math.cos(brng)
+  );
+
   const lon2 = lon1 + Math.atan2(
     Math.sin(brng) * Math.sin(dR) * Math.cos(lat1),
     Math.cos(dR) - Math.sin(lat1) * Math.sin(lat2)
   );
 
   return [toDeg(lat2), toDeg(lon2)];
-}
-
-function distanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat/2)**2 +
-            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-            Math.sin(dLon/2)**2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-
-function distancePointToSegmentKm(p, A, B) {
-  const [px, py] = p;
-  const [ax, ay] = A;
-  const [bx, by] = B;
-
-  const abx = bx - ax;
-  const aby = by - ay;
-  const apx = px - ax;
-  const apy = py - ay;
-
-  const ab2 = abx*abx + aby*aby;
-  if (ab2 === 0) return distanceKm(px, py, ax, ay);
-
-  let t = (apx*abx + apy*aby) / ab2;
-  t = Math.max(0, Math.min(1, t));
-
-  const cx = ax + t * abx;
-  const cy = ay + t * aby;
-  return distanceKm(px, py, cx, cy);
 }
 
 function pointInPolygon([x, y], poly) {
@@ -328,7 +171,6 @@ function pointInPolygon([x, y], poly) {
 /* ============================================================================
    5) RUNWAYS + POLYGONES ÉTENDUS
 ============================================================================ */
-
 const RWY04_START = [50.63795, 5.4438];
 const RWY04_END   = [50.6436,  5.452];
 const RWY04_HEADING = 40;
@@ -336,20 +178,6 @@ const RWY04_HEADING = 40;
 const RWY22_START = RWY04_END;
 const RWY22_END   = RWY04_START;
 const RWY22_HEADING = 220;
-
-const RWY04_POLY = [
-  computePoint(RWY04_START, RWY04_HEADING - 90, 0.03),
-  computePoint(RWY04_END,   RWY04_HEADING - 90, 0.03),
-  computePoint(RWY04_END,   RWY04_HEADING + 90, 0.03),
-  computePoint(RWY04_START, RWY04_HEADING + 90, 0.03)
-];
-
-const RWY22_POLY = [
-  computePoint(RWY22_START, RWY22_HEADING - 90, 0.03),
-  computePoint(RWY22_END,   RWY22_HEADING - 90, 0.03),
-  computePoint(RWY22_END,   RWY22_HEADING + 90, 0.03),
-  computePoint(RWY22_START, RWY22_HEADING + 90, 0.03)
-];
 
 const RWY04_EXT_POLY = [
   computePoint(RWY04_START, RWY04_HEADING - 90, 1.5),
@@ -368,20 +196,19 @@ const RWY22_EXT_POLY = [
 /* ============================================================================
    6) CORRIDOR BRUIT
 ============================================================================ */
-
 function buildCorridor(heading) {
   const origin = [EBLG.lat, EBLG.lon];
-  const p1 = computePoint(origin, heading - 90, 1.5);
-  const p2 = computePoint(origin, heading + 90, 1.5);
-  const p3 = computePoint(origin, heading + 90, 20);
-  const p4 = computePoint(origin, heading - 90, 20);
-  return [p1, p2, p3, p4];
+  return [
+    computePoint(origin, heading - 90, 1.5),
+    computePoint(origin, heading + 90, 1.5),
+    computePoint(origin, heading + 90, 20),
+    computePoint(origin, heading - 90, 20)
+  ];
 }
 
 /* ============================================================================
    7) TOGGLES (ÉTATS INTERNES)
 ============================================================================ */
-
 let HEATMAP_ENABLED = true;
 let CORRIDOR_ENABLED = true;
 let TRACKS_ENABLED = true;
@@ -389,9 +216,28 @@ let SONOS_ENABLED = true;
 
 let heatLayer = null;
 let corridorLayer = null;
+/* ============================================================================
+   8) STRUCTURES INTERNES ADS‑B
+============================================================================ */
+
+let ADSB_MARKERS = {};        // Marqueurs Leaflet par callsign
+let ADSB_BY_CALLSIGN = {};    // Dernière info avion par callsign
+let TRACK_HISTORY = {};       // Historique des positions pour les trajectoires
+let TRACK_LAYERS = {};        // Polylignes des trajectoires
+let TRACK_DECORATORS = {};    // Flèches directionnelles
+let SELECTED_PLANE = null;    // Callsign de l’avion sélectionné
 
 /* ============================================================================
-   8) ICONE AVION (SVG SIMPLE)
+   9) NORMALISATION DES CALLSIGNS
+============================================================================ */
+
+function normalizeCallsign(t) {
+  if (!t) return null;
+  return String(t).trim().toUpperCase();
+}
+
+/* ============================================================================
+   10) ICÔNE AVION (SVG ROTATIF)
 ============================================================================ */
 
 const PLANE_ICON_SVG = `
@@ -399,88 +245,43 @@ const PLANE_ICON_SVG = `
   <path d="M2.5 19l8.5-7-8.5-7v4.5l5 2.5-5 2.5V19zm9.5 0l8.5-7-8.5-7v4.5l5 2.5-5 2.5V19z"/>
 </svg>`;
 
+/**
+ * Génère une icône Leaflet orientée selon le cap de l’avion.
+ */
+function planeIconFor(track, color) {
+  return L.divIcon({
+    className: "plane-icon",
+    html: `
+      <div style="transform:rotate(${track.heading || 0}deg); color:${color};">
+        ${PLANE_ICON_SVG}
+      </div>
+    `,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  });
+}
 /* ============================================================================
-   9) ADS-B FETCH
+   11) FETCH ADS‑B
 ============================================================================ */
 
 async function fetchADSB() {
   if (!ADSB_URL) return [];
+
   try {
     const r = await fetch(ADSB_URL);
     if (!r.ok) throw new Error("ADS-B HTTP " + r.status);
+
     const data = await r.json();
     return data.states || [];
   } catch (e) {
-    console.warn("ADS-B error:", e);
+    console.warn("Erreur ADS-B :", e);
     return [];
   }
 }
 
 /* ============================================================================
-   10) ADS-B MARKERS & TRAJECTOIRES
+   12) MISE À JOUR DES MARQUEURS ADS‑B
 ============================================================================ */
-
-let ADSB_MARKERS = {};
-let ADSB_BY_CALLSIGN = {};
-let TRACK_HISTORY = {};
-let TRACK_LAYERS = {};
-let TRACK_DECORATORS = {};
-let SELECTED_PLANE = null;
-
-function normalizeCallsign(t) {
-  if (!t) return null;
-  return String(t).trim().toUpperCase();
-}
-
-function planeIconFor(track, color) {
-  return L.divIcon({
-    className: "plane-icon",
-    html: `<div style="transform:rotate(${track.heading || 0}deg);color:${color};">${PLANE_ICON_SVG}</div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12]
-  });
-}
-
-function updateTracks(states) {
-  if (!TRACKS_ENABLED) {
-    Object.values(TRACK_LAYERS).forEach(l => map.removeLayer(l));
-    Object.values(TRACK_DECORATORS).forEach(d => map.removeLayer(d));
-    TRACK_LAYERS = {};
-    TRACK_DECORATORS = {};
-    TRACK_HISTORY = {};
-    return;
-  }
-
-  states.forEach(s => {
-    const cs = normalizeCallsign(s.callsign || s.icao || s.hex);
-    if (!cs || !s.lat || !s.lon) return;
-
-    if (!TRACK_HISTORY[cs]) TRACK_HISTORY[cs] = [];
-    TRACK_HISTORY[cs].push([s.lat, s.lon]);
-    if (TRACK_HISTORY[cs].length > 60) TRACK_HISTORY[cs].shift();
-
-    if (TRACK_LAYERS[cs]) {
-      map.removeLayer(TRACK_LAYERS[cs]);
-      if (TRACK_DECORATORS[cs]) map.removeLayer(TRACK_DECORATORS[cs]);
-    }
-
-    const poly = L.polyline(TRACK_HISTORY[cs], { color: "#2563eb", weight: 2, opacity: 0.7 }).addTo(map);
-    TRACK_LAYERS[cs] = poly;
-
-    const decorator = L.polylineDecorator(poly, {
-      patterns: [{
-        offset: "100%",
-        repeat: 0,
-        symbol: L.Symbol.arrowHead({
-          pixelSize: 10,
-          polygon: false,
-          pathOptions: { color: "#1d4ed8", weight: 2 }
-        })
-      }]
-    }).addTo(map);
-    TRACK_DECORATORS[cs] = decorator;
-  });
-}
 
 function updateADSB(states) {
   const seen = new Set();
@@ -488,24 +289,29 @@ function updateADSB(states) {
   states.forEach(s => {
     const cs = normalizeCallsign(s.callsign || s.icao || s.hex);
     if (!cs || !s.lat || !s.lon) return;
+
     seen.add(cs);
 
     const pos = [s.lat, s.lon];
     const heading = s.heading || s.track || 0;
     const color = "#f97316";
 
+    // Création du marqueur si nécessaire
     if (!ADSB_MARKERS[cs]) {
       const marker = L.marker(pos, { icon: planeIconFor({ heading }, color) }).addTo(map);
+
       marker.on("click", () => {
         SELECTED_PLANE = cs;
         showPlaneInfo(cs);
       });
+
       ADSB_MARKERS[cs] = marker;
     } else {
       ADSB_MARKERS[cs].setLatLng(pos);
       ADSB_MARKERS[cs].setIcon(planeIconFor({ heading }, color));
     }
 
+    // Mise à jour des infos avion
     ADSB_BY_CALLSIGN[cs] = {
       callsign: cs,
       icao: s.icao || s.hex,
@@ -520,12 +326,16 @@ function updateADSB(states) {
     };
   });
 
+  /* -------------------------------------------------------------------------
+     Suppression des avions disparus
+  ------------------------------------------------------------------------- */
   Object.keys(ADSB_MARKERS).forEach(cs => {
     if (!seen.has(cs)) {
       map.removeLayer(ADSB_MARKERS[cs]);
       delete ADSB_MARKERS[cs];
       delete ADSB_BY_CALLSIGN[cs];
-      delete TRACK_HISTORY[cs];
+
+      if (TRACK_HISTORY[cs]) delete TRACK_HISTORY[cs];
       if (TRACK_LAYERS[cs]) {
         map.removeLayer(TRACK_LAYERS[cs]);
         delete TRACK_LAYERS[cs];
@@ -534,6 +344,7 @@ function updateADSB(states) {
         map.removeLayer(TRACK_DECORATORS[cs]);
         delete TRACK_DECORATORS[cs];
       }
+
       if (SELECTED_PLANE === cs) {
         SELECTED_PLANE = null;
         hidePlaneInfo();
@@ -541,49 +352,123 @@ function updateADSB(states) {
     }
   });
 
+  // Mise à jour des trajectoires (Bloc 3C)
   updateTracks(states);
 }
-
 /* ============================================================================
-   11) Panneau avion sélectionné
+   13) TRAJECTOIRES ADS‑B (HISTORIQUE + POLYLINES + FLÈCHES)
 ============================================================================ */
 
+function updateTracks(states) {
+  // Si les trajectoires sont désactivées, on nettoie tout
+  if (!TRACKS_ENABLED) {
+    Object.values(TRACK_LAYERS).forEach(l => map.removeLayer(l));
+    Object.values(TRACK_DECORATORS).forEach(d => map.removeLayer(d));
+    TRACK_LAYERS = {};
+    TRACK_DECORATORS = {};
+    TRACK_HISTORY = {};
+    return;
+  }
+
+  states.forEach(s => {
+    const cs = normalizeCallsign(s.callsign || s.icao || s.hex);
+    if (!cs || !s.lat || !s.lon) return;
+
+    // Historique des positions
+    if (!TRACK_HISTORY[cs]) TRACK_HISTORY[cs] = [];
+    TRACK_HISTORY[cs].push([s.lat, s.lon]);
+
+    // Limite de l’historique (60 points ≈ 5 minutes)
+    if (TRACK_HISTORY[cs].length > 60) TRACK_HISTORY[cs].shift();
+
+    // Suppression de l’ancienne trajectoire
+    if (TRACK_LAYERS[cs]) {
+      map.removeLayer(TRACK_LAYERS[cs]);
+      delete TRACK_LAYERS[cs];
+    }
+    if (TRACK_DECORATORS[cs]) {
+      map.removeLayer(TRACK_DECORATORS[cs]);
+      delete TRACK_DECORATORS[cs];
+    }
+
+    // Nouvelle polyline
+    const poly = L.polyline(TRACK_HISTORY[cs], {
+      color: "#2563eb",
+      weight: 2,
+      opacity: 0.7
+    }).addTo(map);
+
+    TRACK_LAYERS[cs] = poly;
+
+    // Flèche directionnelle (PolylineDecorator)
+    const decorator = L.polylineDecorator(poly, {
+      patterns: [
+        {
+          offset: "100%",
+          repeat: 0,
+          symbol: L.Symbol.arrowHead({
+            pixelSize: 10,
+            polygon: false,
+            pathOptions: { color: "#1d4ed8", weight: 2 }
+          })
+        }
+      ]
+    }).addTo(map);
+
+    TRACK_DECORATORS[cs] = decorator;
+  });
+}
+/* ============================================================================
+   14) PANNEAU D’INFORMATION – AVION SÉLECTIONNÉ
+============================================================================ */
+
+/**
+ * Affiche les informations détaillées d’un avion sélectionné.
+ */
 function showPlaneInfo(cs) {
   const info = ADSB_BY_CALLSIGN[cs];
   const box = document.getElementById("plane-info");
+
   if (!info) {
     box.style.display = "none";
     return;
   }
 
+  // Couleur dynamique basée sur le cap
   const hue = (info.heading || 0) % 360;
   const color = `hsl(${hue}, 80%, 55%)`;
+
   box.style.borderLeftColor = color;
   box.style.display = "block";
 
   box.innerHTML = `
-    <div class="title" style="font-weight:600;margin-bottom:0.25rem;">
-      <span style="color:${color};vertical-align:middle;margin-right:0.25rem;">${PLANE_ICON_SVG}</span>
+    <div style="font-weight:600; margin-bottom:0.25rem;">
+      <span style="color:${color}; vertical-align:middle; margin-right:0.25rem;">
+        ${PLANE_ICON_SVG}
+      </span>
       ${info.callsign || info.icao}
     </div>
+
     Latitude : ${info.lat?.toFixed(4)}<br>
     Longitude : ${info.lon?.toFixed(4)}<br>
     Altitude : ${info.altitude ? info.altitude + " ft" : "N/A"}<br>
     Vitesse sol : ${info.speed ? info.speed + " kt" : "N/A"}<br>
-    Taux montée/descente : ${info.verticalRate ? info.verticalRate + " ft/min" : "N/A"}<br>
+    Taux vertical : ${info.verticalRate ? info.verticalRate + " ft/min" : "N/A"}<br>
     Cap : ${info.heading ? info.heading + "°" : "N/A"}<br>
     Sol : ${info.onGround ? "Oui" : "Non"}<br>
     Dernière mise à jour : ${new Date(info.lastSeen).toLocaleTimeString()}<br>
   `;
 }
 
+/**
+ * Masque le panneau avion.
+ */
 function hidePlaneInfo() {
   const box = document.getElementById("plane-info");
   box.style.display = "none";
 }
-
 /* ============================================================================
-   12) METAR
+   15) METAR
 ============================================================================ */
 
 async function fetchMetar() {
@@ -593,27 +478,22 @@ async function fetchMetar() {
     if (!r.ok) throw new Error("METAR HTTP " + r.status);
     return await r.json();
   } catch (e) {
-    console.warn("METAR error:", e);
+    console.warn("Erreur METAR :", e);
     return null;
   }
-}
-
-function formatLocal(t) {
-  if (!t) return "";
-  const d = new Date(t);
-  return d.toLocaleString();
 }
 
 function updateMetarUI(m) {
   const summary = document.getElementById("meteo-summary");
   const raw = document.getElementById("meteo-raw");
+
   if (!m) {
     summary.textContent = "METAR indisponible";
     raw.textContent = "";
     return;
   }
+
   summary.innerHTML = `
-    ${m.station || AVWX_ICAO} – ${formatLocal(m.time?.dt)}<br>
     Vent : ${m.wind_direction?.repr || "///"}° ${m.wind_speed?.repr || "0"} kt<br>
     Temp : ${m.temperature?.repr || "N/A"}°C – QNH ${m.altimeter?.value || "N/A"} hPa
   `;
@@ -621,25 +501,26 @@ function updateMetarUI(m) {
 }
 
 /* ============================================================================
-   13) FIDS
+   16) FIDS
 ============================================================================ */
 
 async function fetchFIDS() {
-  if (!FIDS_PROXY || (!FIDS_URL_ARR && !FIDS_URL_DEP)) {
-    return { arrivals: [], departures: [] };
-  }
+  if (!FIDS_PROXY) return { arrivals: [], departures: [] };
+
   try {
     const r = await fetch(FIDS_PROXY, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ arr: FIDS_URL_ARR, dep: FIDS_URL_DEP })
     });
+
     if (!r.ok) throw new Error("FIDS HTTP " + r.status);
+
     const data = await r.json();
     LAST_FIDS = data;
     return data;
   } catch (e) {
-    console.warn("FIDS error:", e);
+    console.warn("Erreur FIDS :", e);
     return { arrivals: [], departures: [] };
   }
 }
@@ -649,9 +530,7 @@ function updateFlightsUI(fids) {
   const arr = fids.arrivals || [];
   const dep = fids.departures || [];
 
-  const list = FLT_FILTER === "ARR" ? arr :
-               FLT_FILTER === "DEP" ? dep :
-               [...arr, ...dep];
+  const list = [...arr, ...dep];
 
   if (!list.length) {
     box.textContent = "Aucun vol.";
@@ -659,22 +538,17 @@ function updateFlightsUI(fids) {
   }
 
   let html = `<table><thead><tr>
-    <th>Type</th><th>Vol</th><th>Orig/Dest</th><th>Heure</th><th>Statut</th>
+    <th>Type</th><th>Vol</th><th>Orig/Dest</th><th>Heure</th>
   </tr></thead><tbody>`;
 
   list.forEach(v => {
-    const type = v.type || (v.arrival ? "ARR" : "DEP");
-    const code = v.flight || v.callsign || "";
-    const od = v.origin || v.destination || "";
-    const time = v.time || v.sched || "";
-    const status = v.status || "";
-    html += `<tr onclick="showFlightDetail('${(v.id || code).replace(/'/g,"")}')">
-      <td><span class="badge">${type}</span></td>
-      <td>${code}</td>
-      <td>${od}</td>
-      <td>${time}</td>
-      <td>${status}</td>
-    </tr>`;
+    html += `
+      <tr onclick="showFlightDetail('${(v.flight || "").replace(/'/g, "")}')">
+        <td>${v.type || ""}</td>
+        <td>${v.flight || ""}</td>
+        <td>${v.origin || v.destination || ""}</td>
+        <td>${v.time || v.sched || ""}</td>
+      </tr>`;
   });
 
   html += `</tbody></table>`;
@@ -687,101 +561,98 @@ function showFlightDetail(id) {
     box.textContent = "Aucune donnée FIDS.";
     return;
   }
+
   const all = [...(LAST_FIDS.arrivals || []), ...(LAST_FIDS.departures || [])];
-  const v = all.find(x => (x.id || x.flight || x.callsign) === id);
+  const v = all.find(x => x.flight === id);
+
   if (!v) {
     box.textContent = "Vol introuvable.";
     return;
   }
+
   box.innerHTML = `
-    Vol : ${v.flight || v.callsign || ""}<br>
-    Type : ${v.type || (v.arrival ? "ARR" : "DEP")}<br>
-    Origine : ${v.origin || ""}<br>
-    Destination : ${v.destination || ""}<br>
-    Heure prévue : ${v.sched || v.time || ""}<br>
-    Statut : ${v.status || ""}<br>
+    Vol : ${v.flight}<br>
+    Origine : ${v.origin}<br>
+    Destination : ${v.destination}<br>
+    Heure prévue : ${v.time || v.sched}<br>
+    Statut : ${v.status || "N/A"}<br>
   `;
 }
 
 /* ============================================================================
-   14) LOGIQUE PISTE (FIDS + METAR)
+   17) LOGIQUE PISTE (METAR + FIDS)
 ============================================================================ */
 
 function extractRunway(fids) {
-  const arr = fids.arrivals || [];
-  const dep = fids.departures || [];
-  const list = FLT_FILTER === "ARR" ? arr :
-               FLT_FILTER === "DEP" ? dep :
-               [...arr, ...dep];
+  const list = [...(fids.arrivals || []), ...(fids.departures || [])];
 
-  const now = Date.now();
-  let best = null;
-  list.forEach(v => {
-    const rw = v.runway || v.rwy || "";
-    if (!rw) return;
-    const name = rw.replace(/[^0-9]/g, "");
-    const r = EBLG.runways.find(x => x.name === name);
-    if (!r) return;
-    const t = v.time_ts || v.sched_ts || now;
-    if (!best || Math.abs(t - now) < Math.abs(best.time - now)) {
-      best = { name: r.name, heading: r.heading, time: t };
+  for (const v of list) {
+    if (v.runway) {
+      const n = v.runway.replace(/[^0-9]/g, "");
+      const r = EBLG.runways.find(x => x.name === n);
+      if (r) return r;
     }
-  });
-  return best;
+  }
+  return null;
 }
 
 function runwayFromMetar(m) {
-  if (!m || !m.wind_direction || !m.wind_direction.value) return null;
+  if (!m || !m.wind_direction?.value) return null;
+
   const dir = m.wind_direction.value;
   let best = null;
+
   EBLG.runways.forEach(r => {
     const diff = Math.abs(((r.heading - dir + 540) % 360) - 180);
     if (diff <= HEAD_TOL && (!best || diff < best.diff)) {
       best = { name: r.name, heading: r.heading, diff };
     }
   });
+
   return best;
 }
 
 /* ============================================================================
-   15) SONOMETRES COLORATION
+   18) COLORATION DES SONOMETRES
 ============================================================================ */
 
-function updateSonoColors(runwayName, phase) {
-  const impactedIds = [];
+function updateSonoColors(runwayName) {
+  const impacted = [];
+
   SONOS.forEach(s => {
     const m = SONO_MARKERS[s.id];
     if (!m) return;
+
     let color = COLOR.gray;
     if (runwayName === "04") color = COLOR.green;
     if (runwayName === "22") color = COLOR.red;
+
     m.setStyle({ color, fillColor: color });
-    impactedIds.push(s.id);
+    impacted.push(s.id);
   });
 
-  const box = document.getElementById("sonos-impacted");
-  if (!impactedIds.length) {
-    box.textContent = "Aucun sonomètre impacté.";
-  } else {
-    box.textContent = impactedIds.join(", ");
-  }
+  document.getElementById("sonos-impacted").textContent =
+    impacted.length ? impacted.join(", ") : "Aucun";
 }
 
 /* ============================================================================
-   16) HEATMAP
+   19) HEATMAP BRUIT
 ============================================================================ */
 
 function computeImpacted(heading) {
-  const poly = heading === RWY04_HEADING ? RWY04_EXT_POLY :
-               heading === RWY22_HEADING ? RWY22_EXT_POLY :
-               buildCorridor(heading);
+  const poly =
+    heading === RWY04_HEADING ? RWY04_EXT_POLY :
+    heading === RWY22_HEADING ? RWY22_EXT_POLY :
+    buildCorridor(heading);
 
   const impacted = [];
+
   SONOS.forEach(s => {
     if (pointInPolygon([s.lat, s.lon], poly)) {
       impacted.push([s.lat, s.lon, 1]);
     }
   });
+
   return impacted;
 }
 
@@ -791,11 +662,12 @@ function updateHeatmap(list) {
     heatLayer = null;
   }
   if (!HEATMAP_ENABLED || !list.length) return;
+
   heatLayer = L.heatLayer(list, { radius: 25, blur: 15, maxZoom: 15 }).addTo(map);
 }
 
 /* ============================================================================
-   17) CORRIDOR UPDATE
+   20) CORRIDOR BRUIT (AFFICHAGE)
 ============================================================================ */
 
 function updateCorridor() {
@@ -803,8 +675,11 @@ function updateCorridor() {
     map.removeLayer(corridorLayer);
     corridorLayer = null;
   }
+
   if (!CORRIDOR_ENABLED || !lastHeading) return;
+
   const poly = buildCorridor(lastHeading);
+
   corridorLayer = L.polygon(poly, {
     color: "#f97316",
     weight: 1,
@@ -813,11 +688,10 @@ function updateCorridor() {
 }
 
 /* ============================================================================
-   18) DIAPASON (SignalR + BRUIT)
+   21) DIAPASON (BRUIT TEMPS RÉEL)
 ============================================================================ */
 
 const SENSOR_MAP = {
-  // id Diapason -> id SONO
   "F017": "F017",
   "F018": "F018",
   "F019": "F019"
@@ -825,34 +699,34 @@ const SENSOR_MAP = {
 
 let LIVE_NOISE = {};
 let NOISE_HISTORY = {};
-let CHARTS = {};
 
 function updateNoiseUI(list) {
   const box = document.getElementById("noise-live");
-  if (!list || !list.length) {
+  if (!list.length) {
     box.textContent = "Aucune mesure.";
     return;
   }
+
   let html = "";
   list.forEach(n => {
-    html += `<div class="noise-item">
-      <span class="badge">${n.id}</span>
-      <span class="noise-value"> ${n.value.toFixed(1)} dB(A)</span>
-      <span> – ${new Date(n.time).toLocaleTimeString()}</span>
-    </div>`;
+    html += `
+      <div>
+        <span class="badge">${n.id}</span>
+        <b>${n.value.toFixed(1)} dB(A)</b>
+        – ${new Date(n.time).toLocaleTimeString()}
+      </div>`;
   });
-  box.innerHTML = html;
-}
 
-function updateHistoryChart(sensorId) {
-  // minimal : pas de chart détaillé, mais structure prête
+  box.innerHTML = html;
 }
 
 if (HUB_URL) {
   const connection = new signalR.HubConnectionBuilder().withUrl(HUB_URL).build();
+
   connection.on("addNoiseMeasure", (sensorId, payload) => {
     const sonoId = SENSOR_MAP[sensorId];
     if (!sonoId) return;
+
     const value = payload.value || payload.Leq || 0;
     const time = payload.time || Date.now();
 
@@ -862,14 +736,14 @@ if (HUB_URL) {
     NOISE_HISTORY[sonoId].push({ time, value });
     if (NOISE_HISTORY[sonoId].length > 300) NOISE_HISTORY[sonoId].shift();
 
-    const list = Object.values(LIVE_NOISE).sort((a,b) => a.id.localeCompare(b.id));
-    updateNoiseUI(list);
+    updateNoiseUI(Object.values(LIVE_NOISE));
   });
+
   connection.start().catch(e => console.warn("SignalR error:", e));
 }
 
 /* ============================================================================
-   19) ALERTES METEO
+   22) ALERTES METEO
 ============================================================================ */
 
 function computeAlerts(metar, rw) {
@@ -892,9 +766,7 @@ function computeAlerts(metar, rw) {
   if (rw && metar.wind_direction?.value) {
     const dir = metar.wind_direction.value;
     const diff = Math.abs(((rw.heading - dir + 540) % 360) - 180);
-    if (diff > 60) {
-      alerts.push({ level: "warn", msg: `Vent de travers marqué sur piste ${rw.name}.` });
-    }
+    if (diff > 60) alerts.push({ level: "warn", msg: `Vent de travers marqué sur piste ${rw.name}.` });
   }
 
   if (!alerts.length) {
@@ -908,25 +780,26 @@ function computeAlerts(metar, rw) {
 }
 
 /* ============================================================================
-   20) DETECTION DECOLLAGES (MINIMAL)
+   23) DETECTION DECOLLAGES (HOOKS MINIMAUX)
 ============================================================================ */
 
 function detectTakeoff04(states) {
-  // version minimale : pas de logique détaillée, mais hook prêt
+  // Hook minimal — prêt pour logique avancée
 }
 
 function detectTakeoff22(states) {
-  // version minimale : pas de logique détaillée, mais hook prêt
+  // Hook minimal — prêt pour logique avancée
 }
 
 /* ============================================================================
-   21) TOGGLES UI
+   24) TOGGLES UI
 ============================================================================ */
 
 document.getElementById("toggle-tracks").onclick = () => {
   TRACKS_ENABLED = !TRACKS_ENABLED;
-  const btn = document.getElementById("toggle-tracks");
-  btn.textContent = `Trajectoires ADS‑B : ${TRACKS_ENABLED ? "ON" : "OFF"}`;
+  document.getElementById("toggle-tracks").textContent =
+    `Trajectoires : ${TRACKS_ENABLED ? "ON" : "OFF"}`;
+
   if (!TRACKS_ENABLED) {
     Object.values(TRACK_LAYERS).forEach(l => map.removeLayer(l));
     Object.values(TRACK_DECORATORS).forEach(d => map.removeLayer(d));
@@ -938,8 +811,9 @@ document.getElementById("toggle-tracks").onclick = () => {
 
 document.getElementById("toggle-heatmap").onclick = () => {
   HEATMAP_ENABLED = !HEATMAP_ENABLED;
-  const btn = document.getElementById("toggle-heatmap");
-  btn.textContent = `Heatmap : ${HEATMAP_ENABLED ? "ON" : "OFF"}`;
+  document.getElementById("toggle-heatmap").textContent =
+    `Heatmap : ${HEATMAP_ENABLED ? "ON" : "OFF"}`;
+
   if (!HEATMAP_ENABLED && heatLayer) {
     map.removeLayer(heatLayer);
     heatLayer = null;
@@ -948,17 +822,19 @@ document.getElementById("toggle-heatmap").onclick = () => {
 
 document.getElementById("toggle-corridor").onclick = () => {
   CORRIDOR_ENABLED = !CORRIDOR_ENABLED;
-  const btn = document.getElementById("toggle-corridor");
-  btn.textContent = `Corridor : ${CORRIDOR_ENABLED ? "ON" : "OFF"}`;
+  document.getElementById("toggle-corridor").textContent =
+    `Corridor : ${CORRIDOR_ENABLED ? "ON" : "OFF"}`;
   updateCorridor();
 };
 
 document.getElementById("toggle-sonos").onclick = () => {
   SONOS_ENABLED = !SONOS_ENABLED;
-  const btn = document.getElementById("toggle-sonos");
-  btn.textContent = `Sonomètres : ${SONOS_ENABLED ? "ON" : "OFF"}`;
+  document.getElementById("toggle-sonos").textContent =
+    `Sonomètres : ${SONOS_ENABLED ? "ON" : "OFF"}`;
+
   Object.values(SONO_MARKERS).forEach(m => {
-    if (SONOS_ENABLED) m.addTo(map); else map.removeLayer(m);
+    if (SONOS_ENABLED) m.addTo(map);
+    else map.removeLayer(m);
   });
 };
 
@@ -967,14 +843,14 @@ document.getElementById("reset-map").onclick = () => {
 };
 
 /* ============================================================================
-   22) MAIN LOOP (REFRESH)
+   25) BOUCLE DE RAFRAÎCHISSEMENT
 ============================================================================ */
 
 async function refresh() {
-  const metar = await fetchMetar().catch(() => null);
-  if (metar) updateMetarUI(metar);
+  const metar = await fetchMetar();
+  updateMetarUI(metar);
 
-  const fids = await fetchFIDS().catch(() => ({ arrivals: [], departures: [] }));
+  const fids = await fetchFIDS();
   updateFlightsUI(fids);
 
   const rwF = extractRunway(fids);
@@ -990,30 +866,24 @@ async function refresh() {
     document.getElementById("runway-info").textContent = "Piste active : inconnue";
   }
 
-  const phase = FLT_FILTER === "ARR" ? "ARR" : "DEP";
-  if (rw) updateSonoColors(rw.name, phase);
+  if (rw) updateSonoColors(rw.name);
 
   const impacted = rw ? computeImpacted(rw.heading) : [];
   updateHeatmap(impacted);
 
-  if (rw) updateCorridor();
+  updateCorridor();
 
   computeAlerts(metar, rw);
 
-  const adsb = await fetchADSB().catch(() => []);
+  const adsb = await fetchADSB();
   updateADSB(adsb);
 
   detectTakeoff04(adsb);
   detectTakeoff22(adsb);
 }
 
-/* ============================================================================
-   23) AUTO-REFRESH
-============================================================================ */
-
 setInterval(refresh, 5000);
 refresh();
-
 </script>
 
 </body>
