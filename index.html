@@ -134,6 +134,39 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "&copy; OpenStreetMap"
 }).addTo(map);
 
+/* Définition des gradients SVG */
+const svg = document.querySelector("svg");
+if (svg) {
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+
+  const gradDep = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+  gradDep.id = "grad-dep";
+  gradDep.setAttribute("x1", "0%");
+  gradDep.setAttribute("x2", "0%");
+  gradDep.setAttribute("y1", "0%");
+  gradDep.setAttribute("y2", "100%");
+  gradDep.innerHTML = `
+    <stop offset="0%" stop-color="#f97316" stop-opacity="0.35"/>
+    <stop offset="100%" stop-color="#f97316" stop-opacity="0.05"/>
+  `;
+
+  const gradArr = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+  gradArr.id = "grad-arr";
+  gradArr.setAttribute("x1", "0%");
+  gradArr.setAttribute("x2", "0%");
+  gradArr.setAttribute("y1", "0%");
+  gradArr.setAttribute("y2", "100%");
+  gradArr.innerHTML = `
+    <stop offset="0%" stop-color="#2563eb" stop-opacity="0.35"/>
+    <stop offset="100%" stop-color="#2563eb" stop-opacity="0.05"/>
+  `;
+
+  defs.appendChild(gradDep);
+  defs.appendChild(gradArr);
+  svg.appendChild(defs);
+}
+
+  
 const SONO_MARKERS = {};
 SONOS.forEach(s => {
   const m = L.circleMarker([s.lat, s.lon], {
@@ -229,6 +262,32 @@ function buildArrivalTrapezoid(heading) {
   const farRight  = computePoint(origin, heading + 90, 5.0);
   return [nearLeft, nearRight, farRight, farLeft];
 }
+
+  /* Label DEP */
+L.marker(computePoint([EBLG.lat, EBLG.lon], lastHeading, 2), {
+  icon: L.divIcon({
+    className: "dep-label",
+    html: `<div style="
+      color:#f97316;
+      font-weight:700;
+      font-size:14px;
+      text-shadow:0 0 3px white;
+    ">DEP</div>`
+  })
+}).addTo(map);
+
+/* Label ARR */
+L.marker(computePoint([EBLG.lat, EBLG.lon], (lastHeading + 180) % 360, 1.2), {
+  icon: L.divIcon({
+    className: "arr-label",
+    html: `<div style="
+      color:#2563eb;
+      font-weight:700;
+      font-size:14px;
+      text-shadow:0 0 3px white;
+    ">ARR</div>`
+  })
+}).addTo(map);
 
 /* ============================================================================
    7) TOGGLES (ÉTATS INTERNES)
@@ -677,11 +736,13 @@ function updateCorridor() {
     fillOpacity: 0.12
   }).addTo(map);
 
-  arrivalLayer = L.polygon(arrPoly, {
-    color: "#2563eb",
-    weight: 1,
-    fillOpacity: 0.12
-  }).addTo(map);
+ arrivalLayer = L.polygon(arrPoly, {
+  color: "#2563eb",
+  weight: 1,
+  fillOpacity: 1,
+  fillColor: "url(#grad-arr)"
+}).addTo(map);
+
 
   const depCenterLine = [
     computePoint([EBLG.lat, EBLG.lon], lastHeading, 1.0),
@@ -924,3 +985,4 @@ refresh();
 
 </body>
 </html>
+
