@@ -66,7 +66,7 @@
 <script>
 
 /* ============================================================================
-   1) CONFIGURATION GLOBALE — VERSION FINALE AVEC TES DONNÉES
+   1) CONFIGURATION GLOBALE — VERSION FINALE AVEC LES DONNÉES CORRECTES
 ============================================================================ */
 
 const AVWX_TOKEN = "ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc";
@@ -529,18 +529,28 @@ function updateMetarUI(m) {
 }
 
 /* ============================================================================
-   16) FIDS
+   16) FIDS — Version GET compatible avec ton proxy Render
 ============================================================================ */
 
 async function fetchFIDS() {
   try {
+    // Appels directs GET via ton proxy Render
     const rArr = await fetch(FIDS_URL_ARR);
     const rDep = await fetch(FIDS_URL_DEP);
+
+    if (!rArr.ok || !rDep.ok) {
+      console.warn("Erreur HTTP FIDS :", rArr.status, rDep.status);
+      return { arrivals: [], departures: [] };
+    }
 
     const arr = await rArr.json();
     const dep = await rDep.json();
 
-    LAST_FIDS = { arrivals: arr, departures: dep };
+    LAST_FIDS = {
+      arrivals: arr || [],
+      departures: dep || []
+    };
+
     return LAST_FIDS;
 
   } catch (e) {
@@ -548,6 +558,7 @@ async function fetchFIDS() {
     return { arrivals: [], departures: [] };
   }
 }
+
 
 
 function updateFlightsUI(fids) {
@@ -913,6 +924,7 @@ refresh();
 
 </body>
 </html>
+
 
 
 
