@@ -454,10 +454,10 @@ function updateSonoColors(runway, mode) {
     const m = SONO_MARKERS[s.id];
     if (!m) return;
 
-    let color = "#6b7280"; // gris par défaut
+    let color = "#6b7280";
 
-    if (rules.green.includes(s.id)) color = "#22c55e"; // vert
-    if (rules.red.includes(s.id))   color = "#ef4444"; // rouge
+    if (rules.green.includes(s.id)) color = "#22c55e";
+    if (rules.red.includes(s.id))   color = "#ef4444";
 
     m.setStyle({ color, fillColor: color });
   });
@@ -676,12 +676,13 @@ function detectADSBMode(states) {
 
     const diff = Math.abs(bearingToAirport - track);
 
-    if (diff < 45) return "ARR";   // se dirige vers l’aéroport
-    if (diff > 135) return "DEP";  // s’en éloigne
+    if (diff < 45) return "ARR";
+    if (diff > 135) return "DEP";
   }
 
   return null;
 }
+
 
 
 /* Mise à jour ADS‑B */
@@ -991,4 +992,5 @@ refresh();
 
 </body>
 </html>
+
 
