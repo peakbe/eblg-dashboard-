@@ -913,7 +913,6 @@ async function refresh() {
   const rwF = extractRunway(fids);
   const rwM = runwayFromMetar(metar);
   const rw  = rwF || rwM;
-
   if (!rw) {
     lastHeading = 220;
     lastRunway  = null;
@@ -963,6 +962,7 @@ refresh();
 
 </body>
 </html>
+
 
 
 
