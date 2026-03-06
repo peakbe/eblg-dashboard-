@@ -134,37 +134,30 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "&copy; OpenStreetMap"
 }).addTo(map);
 
-/* Définition des gradients SVG */
-const svg = document.querySelector("svg");
-if (svg) {
+/* ============================================================================
+   3B) DÉFINITION DES GRADIENTS SVG (PLACER ICI)
+============================================================================ */
+setTimeout(() => {
+  const svg = document.querySelector("svg");
+  if (!svg) return;
+
   const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
 
-  const gradDep = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
-  gradDep.id = "grad-dep";
-  gradDep.setAttribute("x1", "0%");
-  gradDep.setAttribute("x2", "0%");
-  gradDep.setAttribute("y1", "0%");
-  gradDep.setAttribute("y2", "100%");
-  gradDep.innerHTML = `
-    <stop offset="0%" stop-color="#f97316" stop-opacity="0.35"/>
-    <stop offset="100%" stop-color="#f97316" stop-opacity="0.05"/>
+  defs.innerHTML = `
+    <linearGradient id="grad-dep" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f97316" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#f97316" stop-opacity="0.05"/>
+    </linearGradient>
+
+    <linearGradient id="grad-arr" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#2563eb" stop-opacity="0.05"/>
+    </linearGradient>
   `;
 
-  const gradArr = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
-  gradArr.id = "grad-arr";
-  gradArr.setAttribute("x1", "0%");
-  gradArr.setAttribute("x2", "0%");
-  gradArr.setAttribute("y1", "0%");
-  gradArr.setAttribute("y2", "100%");
-  gradArr.innerHTML = `
-    <stop offset="0%" stop-color="#2563eb" stop-opacity="0.35"/>
-    <stop offset="100%" stop-color="#2563eb" stop-opacity="0.05"/>
-  `;
-
-  defs.appendChild(gradDep);
-  defs.appendChild(gradArr);
   svg.appendChild(defs);
-}
+}, 100);
+
 
   
 const SONO_MARKERS = {};
@@ -246,22 +239,33 @@ const RWY22_EXT_POLY = [
    6) CORRIDOR / TRAPÈZES DÉPART & ARRIVÉE
 ============================================================================ */
 function buildDepartureTrapezoid(heading) {
-  const origin = [EBLG.lat, EBLG.lon];
-  const nearLeft  = computePoint(origin, heading - 90, 1.0);
-  const nearRight = computePoint(origin, heading + 90, 1.0);
-  const farLeft   = computePoint(origin, heading - 90, 15.0);
-  const farRight  = computePoint(origin, heading + 90, 15.0);
+  const start =
+    heading === 40 ? RWY04_START :
+    heading === 220 ? RWY22_START :
+    [EBLG.lat, EBLG.lon];
+
+  const nearLeft  = computePoint(start, heading - 90, 0.3);
+  const nearRight = computePoint(start, heading + 90, 0.3);
+  const farLeft   = computePoint(start, heading - 90, 8.0);
+  const farRight  = computePoint(start, heading + 90, 8.0);
+
   return [nearLeft, nearRight, farRight, farLeft];
 }
 
 function buildArrivalTrapezoid(heading) {
-  const origin = [EBLG.lat, EBLG.lon];
-  const nearLeft  = computePoint(origin, heading - 90, 0.5);
-  const nearRight = computePoint(origin, heading + 90, 0.5);
-  const farLeft   = computePoint(origin, heading - 90, 5.0);
-  const farRight  = computePoint(origin, heading + 90, 5.0);
+  const end =
+    heading === 40 ? RWY04_END :
+    heading === 220 ? RWY22_END :
+    [EBLG.lat, EBLG.lon];
+
+  const nearLeft  = computePoint(end, heading - 90, 0.15);
+  const nearRight = computePoint(end, heading + 90, 0.15);
+  const farLeft   = computePoint(end, heading - 90, 3.0);
+  const farRight  = computePoint(end, heading + 90, 3.0);
+
   return [nearLeft, nearRight, farRight, farLeft];
 }
+
 
   /* Label DEP */
 L.marker(computePoint([EBLG.lat, EBLG.lon], lastHeading, 2), {
@@ -729,19 +733,47 @@ function updateCorridor() {
 
   const depPoly = buildDepartureTrapezoid(lastHeading);
   const arrPoly = buildArrivalTrapezoid((lastHeading + 180) % 360);
+  
+/* Labels DEP / ARR */
+const depStart =
+  lastHeading === 40 ? RWY04_START :
+  lastHeading === 220 ? RWY22_START :
+  [EBLG.lat, EBLG.lon];
 
-  departureLayer = L.polygon(depPoly, {
-    color: "#f97316",
-    weight: 1,
-    fillOpacity: 0.12
-  }).addTo(map);
+const arrEnd =
+  lastHeading === 40 ? RWY04_END :
+  lastHeading === 220 ? RWY22_END :
+  [EBLG.lat, EBLG.lon];
 
- arrivalLayer = L.polygon(arrPoly, {
-  color: "#2563eb",
-  weight: 1,
-  fillOpacity: 1,
-  fillColor: "url(#grad-arr)"
-}).addTo(map);
+/* Label DEP (orange) */
+L.marker(
+  computePoint(depStart, lastHeading, 1.2),
+  {
+    icon: L.divIcon({
+      html: `<div style="
+        color:#f97316;
+        font-weight:700;
+        font-size:14px;
+        text-shadow:0 0 3px white;
+      ">DEP</div>`
+    })
+  }
+).addTo(map);
+
+/* Label ARR (bleu) */
+L.marker(
+  computePoint(arrEnd, (lastHeading + 180) % 360, 1.0),
+  {
+    icon: L.divIcon({
+      html: `<div style="
+        color:#2563eb;
+        font-weight:700;
+        font-size:14px;
+        text-shadow:0 0 3px white;
+      ">ARR</div>`
+    })
+  }
+).addTo(map);
 
 
   const depCenterLine = [
@@ -985,4 +1017,5 @@ refresh();
 
 </body>
 </html>
+
 
