@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
 <meta charset="UTF-8">
 <title>EBLG – Dashboard</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 
-<!-- Leaflet + Heatmap + PolylineDecorator (CORRECT) -->
+<!-- Leaflet + Heatmap + PolylineDecorator -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
@@ -14,6 +15,7 @@
 <!-- Chart.js + SignalR -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
+</head>
 
 <style>
 body{margin:0;font-family:system-ui;display:flex;flex-direction:column;height:100vh}
@@ -43,11 +45,7 @@ main{display:flex;flex:1;overflow:hidden}
   color: #3b82f6;
   font-weight: 600;
 }
-
-
-  
 </style>
-</head>
 
 <body>
 <header>
@@ -66,11 +64,11 @@ main{display:flex;flex:1;overflow:hidden}
 
 <div class="block"><h2>Météo</h2><div id="meteo-summary"></div><div id="meteo-raw" class="small"></div></div>
 <div class="block"><h2>Piste active</h2><div id="runway-info"></div></div>
+
 <div id="sono-mode" style="margin-top:4px; font-size:14px; color:#6b7280;">
   Mode sonomètres : —
 </div>
 
-  
 <div class="block" id="corridor-panel">
   <h2>Corridor</h2>
   <div id="corridor-info" class="small"></div>
@@ -84,7 +82,7 @@ main{display:flex;flex:1;overflow:hidden}
 </div>
 
 <div class="block"><h2>Sonomètres impactés</h2><div id="sonos-impacted"></div></div>
-<!-- Section bruit temps réel masquée (pas de flux disponible) -->
+
 <div class="block" style="display:none;">
   <h2>Bruit temps réel</h2>
   <div id="noise-live"></div>
@@ -106,8 +104,10 @@ main{display:flex;flex:1;overflow:hidden}
 <div class="block"><h2>Avion sélectionné</h2><div id="plane-info"></div></div>
 
 </section>
+
 <section id="map"></section>
 </main>
+
 <script>
 /* ============================================================
    CONFIGURATION GÉNÉRALE
@@ -157,7 +157,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 /* ============================================================
-   GRADIENTS SVG (JAUNE / VIOLET)
+   GRADIENTS SVG (JAUNE / VIOLET) — VERSION CORRIGÉE
    ============================================================ */
 map.whenReady(() => {
   const svg = document.querySelector("svg");
@@ -177,7 +177,6 @@ map.whenReady(() => {
   `;
   svg.appendChild(defs);
 });
-
 
 /* ============================================================
    SONOMÈTRES
@@ -345,16 +344,6 @@ function updateFlightsUI(f) {
   box.innerHTML = html;
 }
 
-
-document.querySelectorAll("#fids-tabs span").forEach(tab => {
-  tab.onclick = () => {
-    document.querySelectorAll("#fids-tabs span").forEach(t => t.classList.remove("active"));
-    tab.classList.add("active");
-    FIDS_FILTER = tab.dataset.tab;
-    LAST_FIDS && updateFlightsUI(LAST_FIDS);
-  };
-});
-
 /* ============================================================
    METAR
    ============================================================ */
@@ -385,10 +374,9 @@ function updateMetarUI(m) {
 
   r.textContent = m.raw || "";
 }
-
-/* ============================================================
-   DÉTERMINATION DE LA PISTE
-   ============================================================ */
+<!-- ============================================================
+     DÉTERMINATION DE LA PISTE
+     ============================================================ -->
 function extractRunway(f) {
   const list = [...f.arrivals, ...f.departures];
 
@@ -401,11 +389,11 @@ function extractRunway(f) {
   }
   return null;
 }
+
 function extractFlightMode(fids) {
   if (!fids || !fids.arrivals || !fids.departures) return null;
 
   const list = [...fids.arrivals, ...fids.departures];
-
   const active = list.find(f => f.status && f.status.toLowerCase().includes("confirm"));
   if (!active) return null;
 
@@ -414,7 +402,6 @@ function extractFlightMode(fids) {
 
   return null;
 }
-
 
 function runwayFromMetar(m) {
   if (!m || !m.wind_direction?.value) return null;
@@ -429,13 +416,10 @@ function runwayFromMetar(m) {
 
   return best;
 }
-  
- 
-  
-/* ============================================================
-   COLORATION SONOMÈTRES SELON PISTE + SENS (DÉCOLLAGE / ARRIVÉE)
-   ============================================================ */
 
+/* ============================================================
+   COLORATION SONOMÈTRES SELON PISTE + SENS
+   ============================================================ */
 const SONO_RULES = {
   "22": {
     "DEP": { green: ["F002","F003","F004","F005","F006","F007","F008","F009","F010","F011","F012","F013","F016"], red: [] },
@@ -456,15 +440,12 @@ function updateSonoColors(runway, mode) {
     if (!m) return;
 
     let color = "#6b7280";
-
     if (rules.green.includes(s.id)) color = "#22c55e";
     if (rules.red.includes(s.id))   color = "#ef4444";
 
     m.setStyle({ color, fillColor: color });
   });
 }
-
-
 
 /* ============================================================
    HEATMAP (impact sonomètres)
@@ -528,7 +509,6 @@ document.getElementById("chk-gradient").onchange = e => { SHOW_GRADIENT = e.targ
    ============================================================ */
 function updateCorridor() {
 
-  /* Nettoyage */
   if (departureLayer) { map.removeLayer(departureLayer); departureLayer = null; }
   if (arrivalLayer)   { map.removeLayer(arrivalLayer);   arrivalLayer   = null; }
   if (departureArrow) { map.removeLayer(departureArrow); departureArrow = null; }
@@ -617,7 +597,6 @@ function updateCorridor() {
     }]
   }).addTo(map);
 
-  /* Texte panneau corridor */
   document.getElementById("corridor-info").innerHTML =
     lastRunway
       ? `Piste : ${lastRunway} – cap ${lastHeading}°`
@@ -652,15 +631,9 @@ const PLANE_ICON_SVG = `
   <path d="M2.5 19l8.5-7-8.5-7v4.5l5 2.5-5 2.5V19zm9.5 0l8.5-7-8.5-7v4.5l5 2.5-5 2.5V19z"/>
 </svg>`;
 
-/* Icône avion orientée */
-function planeIconFor(track, color) {
-  return L.divIcon({
-    className: "plane-icon",
-    html: `<div style="transform:rotate(${track.heading||0}deg);color:${color};">${PLANE_ICON_SVG}</div>`,
-    iconSize: [24,24],
-    iconAnchor: [12,12]
-  });
-}
+/* ============================================================
+   ADS‑B — Détection du mode (ARR / DEP)
+   ============================================================ */
 function detectADSBMode(states) {
   if (!states || !states.length) return null;
 
@@ -684,9 +657,9 @@ function detectADSBMode(states) {
   return null;
 }
 
-
-
-/* Mise à jour ADS‑B */
+/* ============================================================
+   ADS‑B — Mise à jour des avions
+   ============================================================ */
 function updateADSB(states) {
   const seen = new Set();
 
@@ -793,6 +766,7 @@ function updateTracks(states) {
     TRACK_DECORATORS[cs] = deco;
   });
 }
+
 /* ============================================================
    PANNEAU AVION SÉLECTIONNÉ
    ============================================================ */
@@ -868,17 +842,13 @@ document.getElementById("reset-map").onclick = () =>
 /* ============================================================
    DÉTECTION AUTOMATIQUE D’UN FLUX ACOUSTIQUE
    ============================================================ */
-
-const NOISE_API_URL = "/api/noise/latest";  
-// Remplace par un flux interne SPW / Liege Airport si disponible
-
+const NOISE_API_URL = "/api/noise/latest";
 let noiseSectionVisible = false;
 
 async function checkNoiseFeed() {
   try {
     const r = await fetch(NOISE_API_URL, { cache: "no-store" });
 
-    // Si le flux ne répond pas → masquer
     if (!r.ok) {
       hideNoiseSection();
       return;
@@ -886,17 +856,15 @@ async function checkNoiseFeed() {
 
     const data = await r.json();
 
-    // Si le flux répond mais sans données → masquer
     if (!data || typeof data !== "object" || !data.level) {
       hideNoiseSection();
       return;
     }
 
-    // Si on arrive ici → flux acoustique valide
     showNoiseSection();
     updateNoiseUI(data);
 
-  } catch (e) {
+  } catch {
     hideNoiseSection();
   }
 }
@@ -985,7 +953,6 @@ async function refresh() {
   checkNoiseFeed();
 }
 
-
 /* Rafraîchissement toutes les 5 secondes */
 setInterval(refresh, 5000);
 refresh();
@@ -993,7 +960,6 @@ refresh();
 
 </body>
 </html>
-
 
 
 
