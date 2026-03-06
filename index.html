@@ -30,8 +30,10 @@ main{display:flex;flex:1;overflow:hidden}
 #plane-info{border-left:4px solid #6b7280;padding-left:.5rem;display:none}
 #corridor-panel label{display:flex;align-items:center;gap:.35rem;margin-bottom:.15rem}
 .leaflet-interactive {
-  transition: fill 0.6s ease, stroke 0.6s ease, fill-opacity 0.6s ease
-  #sono-mode.dep {
+  transition: fill 0.6s ease, stroke 0.6s ease, fill-opacity 0.6s ease;
+}
+
+#sono-mode.dep {
   color: #22c55e;
   font-weight: 600;
 }
@@ -40,6 +42,7 @@ main{display:flex;flex:1;overflow:hidden}
   color: #3b82f6;
   font-weight: 600;
 }
+
 
 }
   
@@ -312,9 +315,6 @@ function applyFidsFilter(f) {
 function updateFlightsUI(f) {
   const box = document.getElementById("flights-list");
   const list = applyFidsFilter(f);
-const box = document.getElementById("sono-mode");
-box.classList.remove("dep","arr");
-box.classList.add(mode.toLowerCase());
 
   if (!list.length) {
     box.textContent = "Aucun vol.";
@@ -343,6 +343,7 @@ box.classList.add(mode.toLowerCase());
   html += "</tbody></table>";
   box.innerHTML = html;
 }
+
 
 document.querySelectorAll("#fids-tabs span").forEach(tab => {
   tab.onclick = () => {
@@ -400,21 +401,19 @@ function extractRunway(f) {
   return null;
 }
 function extractFlightMode(fids) {
-  if (!fids || !Array.isArray(fids)) return null;
+  if (!fids || !fids.arrivals || !fids.departures) return null;
 
-  // On cherche un vol actif (CONFIRMED)
-  const active = fids.find(f => f.status === "CONFIRMED");
+  const list = [...fids.arrivals, ...fids.departures];
 
+  const active = list.find(f => f.status && f.status.toLowerCase().includes("confirm"));
   if (!active) return null;
 
-  // Si le vol est un départ → DEP
   if (active.type === "D") return "DEP";
-
-  // Si le vol est une arrivée → ARR
   if (active.type === "A") return "ARR";
 
   return null;
 }
+
 
 function runwayFromMetar(m) {
   if (!m || !m.wind_direction?.value) return null;
@@ -430,18 +429,7 @@ function runwayFromMetar(m) {
   return best;
 }
   
-/* Détermination du sens DEP / ARR via FIDS */
-let mode = extractFlightMode(fids) || "ARR";
-
-/* ADS-B override si disponible */
-const adsbMode = detectADSBMode(adsb);
-if (adsbMode) mode = adsbMode;
-
-/* Mise à jour affichage sidebar */
-const box = document.getElementById("sono-mode");
-box.textContent = "Mode sonomètres : " + (mode === "DEP" ? "Décollage" : "Atterrissage");
-box.classList.remove("dep","arr");
-box.classList.add(mode.toLowerCase()); 
+ 
   
 /* ============================================================
    COLORATION SONOMÈTRES SELON PISTE + SENS (DÉCOLLAGE / ARRIVÉE)
@@ -672,29 +660,29 @@ function planeIconFor(track, color) {
     iconAnchor: [12,12]
   });
 }
-function detectADSBMode(adsb) {
-  if (!adsb || !adsb.aircraft) return null;
+function detectADSBMode(states) {
+  if (!states || !states.length) return null;
 
-  const planes = adsb.aircraft;
+  for (const s of states) {
+    const lat = s[6];
+    const lon = s[5];
+    const track = s[10];
 
-  for (const p of planes) {
-    if (!p.lat || !p.lon || !p.track) continue;
+    if (lat == null || lon == null || track == null) continue;
 
-    const dx = p.lon - EBLG.lon;
-    const dy = p.lat - EBLG.lat;
+    const dx = lon - EBLG.lon;
+    const dy = lat - EBLG.lat;
     const bearingToAirport = Math.atan2(dx, dy) * 180 / Math.PI;
 
-    const diff = Math.abs(bearingToAirport - p.track);
+    const diff = Math.abs(bearingToAirport - track);
 
-    // Si l’avion se dirige vers l’aéroport → ARR
-    if (diff < 45) return "ARR";
-
-    // Si l’avion s’en éloigne → DEP
-    if (diff > 135) return "DEP";
+    if (diff < 45) return "ARR";   // se dirige vers l’aéroport
+    if (diff > 135) return "DEP";  // s’en éloigne
   }
 
   return null;
 }
+
 
 /* Mise à jour ADS‑B */
 function updateADSB(states) {
@@ -1003,3 +991,4 @@ refresh();
 
 </body>
 </html>
+
