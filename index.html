@@ -1,40 +1,40 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>EBLG – Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <!-- Leaflet + Heatmap + PolylineDecorator -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polylinedecorator/1.7.0/leaflet.polylineDecorator.min.js"></script>
-
-  <!-- Chart.js + SignalR -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
-
-  <style>
-    body { margin:0; font-family:system-ui; display:flex; flex-direction:column; height:100vh; }
-    header { background:#111827; color:#f9fafb; padding:0.5rem 1rem; display:flex; justify-content:space-between; }
-    header button { margin-left:0.25rem; padding:0.25rem 0.5rem; background:#1f2937; color:#e5e7eb; border:1px solid #4b5563; border-radius:4px; cursor:pointer; }
-    main { display:flex; flex:1; overflow:hidden; }
-    #sidebar { width:340px; background:#f3f4f6; padding:0.75rem; overflow-y:auto; border-right:1px solid #d1d5db; }
-    #map { flex:1; }
-    .block { margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid #e5e7eb; }
-    .block h2 { margin:0 0 0.25rem 0; font-size:0.95rem; }
-    #plane-info { display:none; border-left:4px solid #6b7280; background:#fff; padding:0.5rem; }
-    table { width:100%; border-collapse:collapse; font-size:0.8rem; }
-    th,td { border-bottom:1px solid #e5e7eb; padding:0.15rem 0.25rem; }
-    tr:hover { background:#e5e7eb; cursor:pointer; }
-    .badge { padding:0.05rem 0.3rem; border-radius:999px; background:#e5e7eb; }
-    .alert { padding:0.25rem; border-radius:4px; margin-bottom:0.25rem; font-size:0.8rem; }
-    .alert.warn { background:#fef3c7; color:#92400e; }
-    .alert.danger { background:#fee2e2; color:#991b1b; }
-  </style>
+<meta charset="UTF-8">
+<title>EBLG – Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polylinedecorator/1.7.0/leaflet.polylineDecorator.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
+<style>
+body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;display:flex;flex-direction:column;height:100vh}
+header{background:#111827;color:#f9fafb;padding:.5rem 1rem;display:flex;justify-content:space-between;align-items:center}
+header button{margin-left:.25rem;padding:.25rem .5rem;background:#1f2937;color:#e5e7eb;border:1px solid #4b5563;border-radius:4px;cursor:pointer;font-size:.8rem}
+header button:hover{background:#374151}
+main{display:flex;flex:1;overflow:hidden}
+#sidebar{width:360px;background:#f3f4f6;padding:.75rem;overflow-y:auto;border-right:1px solid #d1d5db;font-size:.85rem}
+#map{flex:1}
+.block{margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid #e5e7eb}
+.block h2{margin:0 0 .25rem 0;font-size:.95rem}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th,td{border-bottom:1px solid #e5e7eb;padding:.15rem .25rem;text-align:left}
+tr:hover{background:#e5e7eb;cursor:pointer}
+#fids-tabs{display:flex;gap:1rem;margin-bottom:.5rem;font-size:.85rem}
+#fids-tabs span{cursor:pointer;color:#374151}
+#fids-tabs span.active{color:#1d4ed8;font-weight:700;border-bottom:2px solid #1d4ed8}
+.alert{padding:.25rem;border-radius:4px;margin-bottom:.25rem;font-size:.8rem}
+.alert.warn{background:#fef3c7;color:#92400e}
+.alert.danger{background:#fee2e2;color:#991b1b}
+#plane-info{border-left:4px solid #6b7280;padding-left:.5rem;display:none}
+#corridor-panel label{display:flex;align-items:center;gap:.35rem;margin-bottom:.15rem}
+#corridor-panel input[type=checkbox]{transform:scale(.9)}
+.small{font-size:.78rem;color:#4b5563}
+</style>
 </head>
-
 <body>
 <header>
   <div>EBLG Dashboard</div>
@@ -46,976 +46,129 @@
     <button id="reset-map">Reset</button>
   </div>
 </header>
-
 <main>
   <section id="sidebar">
-    <div class="block"><h2>Météo</h2><div id="meteo-summary"></div><div id="meteo-raw"></div></div>
+    <div class="block"><h2>Météo</h2><div id="meteo-summary"></div><div id="meteo-raw" class="small"></div></div>
     <div class="block"><h2>Piste active</h2><div id="runway-info"></div></div>
+    <div class="block" id="corridor-panel">
+      <h2>Corridor</h2>
+      <div id="corridor-info" class="small"></div>
+      <label><input type="checkbox" id="chk-dep" checked>Afficher trapèze départ</label>
+      <label><input type="checkbox" id="chk-arr" checked>Afficher trapèze arrivée</label>
+      <label><input type="checkbox" id="chk-labels" checked>Afficher labels DEP / ARR</label>
+      <label><input type="checkbox" id="chk-gradient" checked>Gradient sur trapèzes</label>
+      <div class="small" style="margin-top:.35rem">
+        Départ : largeur 0.3 km – longueur 8 km<br>
+        Arrivée : largeur 0.15 km – longueur 3 km
+      </div>
+    </div>
     <div class="block"><h2>Sonomètres impactés</h2><div id="sonos-impacted"></div></div>
     <div class="block"><h2>Bruit temps réel</h2><div id="noise-live"></div></div>
     <div class="block"><h2>Alertes</h2><div id="alerts"></div></div>
-    <div class="block"><h2>Vols (FIDS)</h2><div id="flights-list"></div></div>
+    <div class="block">
+      <h2>Vols (FIDS)</h2>
+      <div id="fids-tabs">
+        <span data-tab="all" class="active">Tous</span>
+        <span data-tab="dep">Départs</span>
+        <span data-tab="arr">Arrivées</span>
+      </div>
+      <div id="flights-list"></div>
+    </div>
     <div class="block"><h2>Détail vol</h2><div id="flight-detail"></div></div>
     <div class="block"><h2>Avion sélectionné</h2><div id="plane-info"></div></div>
   </section>
   <section id="map"></section>
 </main>
-
 <script>
-/* ============================================================================
-   1) CONFIGURATION GLOBALE
-============================================================================ */
-const AVWX_TOKEN = "ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc";
-const AVWX_ICAO  = "EBLG";
-
-const FIDS_PROXY = "https://eblg-proxy.onrender.com/fids?url=";
-const FIDS_URL_ARR = FIDS_PROXY + encodeURIComponent(
-  "https://fids.liegeairport.com/api/flights/Arrivals"
-);
-const FIDS_URL_DEP = FIDS_PROXY + encodeURIComponent(
-  "https://fids.liegeairport.com/api/flights/Departures"
-);
-
-const ADSB_URL = "https://opensky-network.org/api/states/all";
-const HUB_URL  = "https://eblg.aerovision.cloud/EBLG/signalr-noise";
-
-const EBLG = {
-  lat: 50.6374,
-  lon: 5.4432,
-  runways: [
-    { name: "04", heading: 40 },
-    { name: "22", heading: 220 }
-  ]
-};
-
-let FLT_FILTER = "ALL";
-const HEAD_TOL = 15;
-
-let lastHeading = null;
-let lastRunway  = null;
-let LAST_FIDS   = null;
-
-/* ============================================================================
-   SONOMETRES — Coordonnées réelles EBLG
-============================================================================ */
-const SONOS = [
-  { id: "F017", lat: 50.764883, lon: 5.630606 },
-  { id: "F001", lat: 50.738044, lon: 5.608833 },
-  { id: "F014", lat: 50.718894, lon: 5.573164 },
-  { id: "F015", lat: 50.688839, lon: 5.526217 },
-  { id: "F005", lat: 50.639331, lon: 5.323519 },
-  { id: "F003", lat: 50.601167, lon: 5.381400 },
-  { id: "F011", lat: 50.601142, lon: 5.355006 },
-  { id: "F008", lat: 50.594878, lon: 5.358950 },
-  { id: "F002", lat: 50.588414, lon: 5.370522 },
-  { id: "F007", lat: 50.590756, lon: 5.344114 },
-  { id: "F009", lat: 50.580831, lon: 5.355417 },
-  { id: "F004", lat: 50.605414, lon: 5.321406 },
-  { id: "F010", lat: 50.599392, lon: 5.313492 },
-  { id: "F013", lat: 50.586914, lon: 5.308678 },
-  { id: "F016", lat: 50.619617, lon: 5.295344 },
-  { id: "F006", lat: 50.609594, lon: 5.271403 },
-  { id: "F012", lat: 50.621917, lon: 5.254747 }
-];
-
-const COLOR = {
-  green: "#10b981",
-  red:   "#ef4444",
-  gray:  "#6b7280"
-};
-
-/* ============================================================================
-   3) INITIALISATION DE LA CARTE
-============================================================================ */
-const map = L.map("map").setView([EBLG.lat, EBLG.lon], 11);
-
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 18,
-  attribution: "&copy; OpenStreetMap"
-}).addTo(map);
-
-/* ============================================================================
-   3B) DÉFINITION DES GRADIENTS SVG (PLACER ICI)
-============================================================================ */
-setTimeout(() => {
-  const svg = document.querySelector("svg");
-  if (!svg) return;
-
-  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-
-  defs.innerHTML = `
-    <linearGradient id="grad-dep" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#f97316" stop-opacity="0.35"/>
-      <stop offset="100%" stop-color="#f97316" stop-opacity="0.05"/>
-    </linearGradient>
-
-    <linearGradient id="grad-arr" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#2563eb" stop-opacity="0.35"/>
-      <stop offset="100%" stop-color="#2563eb" stop-opacity="0.05"/>
-    </linearGradient>
-  `;
-
-  svg.appendChild(defs);
-}, 100);
-
-
-  
-const SONO_MARKERS = {};
-SONOS.forEach(s => {
-  const m = L.circleMarker([s.lat, s.lon], {
-    radius: 6,
-    color: "#4b5563",
-    fillColor: "#9ca3af",
-    fillOpacity: 0.9
-  }).addTo(map);
-  m.bindPopup(s.id);
-  SONO_MARKERS[s.id] = m;
-});
-
-/* ============================================================================
-   4) OUTILS GEOMETRIQUES
-============================================================================ */
-function toRad(d) { return d * Math.PI / 180; }
-function toDeg(r) { return r * 180 / Math.PI; }
-
-function computePoint([lat, lon], headingDeg, distanceKm) {
-  const R = 6371;
-  const brng = toRad(headingDeg);
-  const dR = distanceKm / R;
-  const lat1 = toRad(lat);
-  const lon1 = toRad(lon);
-
-  const lat2 = Math.asin(
-    Math.sin(lat1) * Math.cos(dR) +
-    Math.cos(lat1) * Math.sin(dR) * Math.cos(brng)
-  );
-
-  const lon2 = lon1 + Math.atan2(
-    Math.sin(brng) * Math.sin(dR) * Math.cos(lat1),
-    Math.cos(dR) - Math.sin(lat1) * Math.sin(lat2)
-  );
-
-  return [toDeg(lat2), toDeg(lon2)];
-}
-
-function pointInPolygon([x, y], poly) {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i][1], yi = poly[i][0];
-    const xj = poly[j][1], yj = poly[j][0];
-    const intersect = ((yi > y) !== (yj > y)) &&
-                      (x < (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
-/* ============================================================================
-   5) RUNWAYS + POLYGONES ÉTENDUS
-============================================================================ */
-const RWY04_START = [50.63795, 5.4438];
-const RWY04_END   = [50.6436,  5.452];
-const RWY04_HEADING = 40;
-
-const RWY22_START = RWY04_END;
-const RWY22_END   = RWY04_START;
-const RWY22_HEADING = 220;
-
-const RWY04_EXT_POLY = [
-  computePoint(RWY04_START, RWY04_HEADING - 90, 1.5),
-  computePoint(RWY04_END,   RWY04_HEADING - 90, 3.5),
-  computePoint(RWY04_END,   RWY04_HEADING + 90, 3.5),
-  computePoint(RWY04_START, RWY04_HEADING + 90, 1.5)
-];
-
-const RWY22_EXT_POLY = [
-  computePoint(RWY22_START, RWY22_HEADING - 90, 1.5),
-  computePoint(RWY22_END,   RWY22_HEADING - 90, 3.5),
-  computePoint(RWY22_END,   RWY22_HEADING + 90, 3.5),
-  computePoint(RWY22_START, RWY22_HEADING + 90, 1.5)
-];
-
-/* ============================================================================
-   6) CORRIDOR / TRAPÈZES DÉPART & ARRIVÉE
-============================================================================ */
-function buildDepartureTrapezoid(heading) {
-  const start =
-    heading === 40 ? RWY04_START :
-    heading === 220 ? RWY22_START :
-    [EBLG.lat, EBLG.lon];
-
-  const nearLeft  = computePoint(start, heading - 90, 0.3);
-  const nearRight = computePoint(start, heading + 90, 0.3);
-  const farLeft   = computePoint(start, heading - 90, 8.0);
-  const farRight  = computePoint(start, heading + 90, 8.0);
-
-  return [nearLeft, nearRight, farRight, farLeft];
-}
-
-function buildArrivalTrapezoid(heading) {
-  const end =
-    heading === 40 ? RWY04_END :
-    heading === 220 ? RWY22_END :
-    [EBLG.lat, EBLG.lon];
-
-  const nearLeft  = computePoint(end, heading - 90, 0.15);
-  const nearRight = computePoint(end, heading + 90, 0.15);
-  const farLeft   = computePoint(end, heading - 90, 3.0);
-  const farRight  = computePoint(end, heading + 90, 3.0);
-
-  return [nearLeft, nearRight, farRight, farLeft];
-}
-
-
-  /* Label DEP */
-L.marker(computePoint([EBLG.lat, EBLG.lon], lastHeading, 2), {
-  icon: L.divIcon({
-    className: "dep-label",
-    html: `<div style="
-      color:#f97316;
-      font-weight:700;
-      font-size:14px;
-      text-shadow:0 0 3px white;
-    ">DEP</div>`
-  })
-}).addTo(map);
-
-/* Label ARR */
-L.marker(computePoint([EBLG.lat, EBLG.lon], (lastHeading + 180) % 360, 1.2), {
-  icon: L.divIcon({
-    className: "arr-label",
-    html: `<div style="
-      color:#2563eb;
-      font-weight:700;
-      font-size:14px;
-      text-shadow:0 0 3px white;
-    ">ARR</div>`
-  })
-}).addTo(map);
-
-/* ============================================================================
-   7) TOGGLES (ÉTATS INTERNES)
-============================================================================ */
-let HEATMAP_ENABLED = true;
-let CORRIDOR_ENABLED = true;
-let TRACKS_ENABLED = true;
-let SONOS_ENABLED = true;
-
-let heatLayer = null;
-let departureLayer = null;
-let arrivalLayer = null;
-let departureArrow = null;
-let arrivalArrow = null;
-
-/* ============================================================================
-   8) STRUCTURES INTERNES ADS‑B
-============================================================================ */
-let ADSB_MARKERS = {};
-let ADSB_BY_CALLSIGN = {};
-let TRACK_HISTORY = {};
-let TRACK_LAYERS = {};
-let TRACK_DECORATORS = {};
-let SELECTED_PLANE = null;
-
-/* ============================================================================
-   9) NORMALISATION DES CALLSIGNS
-============================================================================ */
-function normalizeCallsign(t) {
-  if (!t) return null;
-  return String(t).trim().toUpperCase();
-}
-
-/* ============================================================================
-   10) ICÔNE AVION (SVG ROTATIF)
-============================================================================ */
-const PLANE_ICON_SVG = `
-<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-  <path d="M2.5 19l8.5-7-8.5-7v4.5l5 2.5-5 2.5V19zm9.5 0l8.5-7-8.5-7v4.5l5 2.5-5 2.5V19z"/>
-</svg>`;
-
-function planeIconFor(track, color) {
-  return L.divIcon({
-    className: "plane-icon",
-    html: `
-      <div style="transform:rotate(${track.heading || 0}deg); color:${color};">
-        ${PLANE_ICON_SVG}
-      </div>
-    `,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12]
-  });
-}
-
-/* ============================================================================
-   11) FETCH ADS‑B
-============================================================================ */
-async function fetchADSB() {
-  if (!ADSB_URL) return [];
-  try {
-    const r = await fetch(ADSB_URL);
-    if (!r.ok) throw new Error("ADS-B HTTP " + r.status);
-    const data = await r.json();
-    return data.states || [];
-  } catch (e) {
-    console.warn("Erreur ADS-B :", e);
-    return [];
-  }
-}
-
-/* ============================================================================
-   12) MISE À JOUR DES MARQUEURS ADS‑B
-============================================================================ */
-function updateADSB(states) {
-  const seen = new Set();
-
-  states.forEach(s => {
-    const cs = normalizeCallsign(s[1] || s[0]); // OpenSky: [0]=icao24, [1]=callsign
-    const lat = s[6];
-    const lon = s[5];
-    const heading = s[10] || 0;
-    if (!cs || lat == null || lon == null) return;
-
-    seen.add(cs);
-    const pos = [lat, lon];
-    const color = "#f97316";
-
-    if (!ADSB_MARKERS[cs]) {
-      const marker = L.marker(pos, { icon: planeIconFor({ heading }, color) }).addTo(map);
-      marker.on("click", () => {
-        SELECTED_PLANE = cs;
-        showPlaneInfo(cs);
-      });
-      ADSB_MARKERS[cs] = marker;
-    } else {
-      ADSB_MARKERS[cs].setLatLng(pos);
-      ADSB_MARKERS[cs].setIcon(planeIconFor({ heading }, color));
-    }
-
-    ADSB_BY_CALLSIGN[cs] = {
-      callsign: cs,
-      icao: s[0],
-      lat,
-      lon,
-      altitude: s[7],
-      speed: s[9],
-      verticalRate: s[11],
-      heading,
-      onGround: !!s[8],
-      lastSeen: Date.now()
-    };
-  });
-
-  Object.keys(ADSB_MARKERS).forEach(cs => {
-    if (!seen.has(cs)) {
-      map.removeLayer(ADSB_MARKERS[cs]);
-      delete ADSB_MARKERS[cs];
-      delete ADSB_BY_CALLSIGN[cs];
-
-      if (TRACK_HISTORY[cs]) delete TRACK_HISTORY[cs];
-      if (TRACK_LAYERS[cs]) {
-        map.removeLayer(TRACK_LAYERS[cs]);
-        delete TRACK_LAYERS[cs];
-      }
-      if (TRACK_DECORATORS[cs]) {
-        map.removeLayer(TRACK_DECORATORS[cs]);
-        delete TRACK_DECORATORS[cs];
-      }
-
-      if (SELECTED_PLANE === cs) {
-        SELECTED_PLANE = null;
-        hidePlaneInfo();
-      }
-    }
-  });
-
-  updateTracks(states);
-}
-
-/* ============================================================================
-   13) TRAJECTOIRES ADS‑B
-============================================================================ */
-function updateTracks(states) {
-  if (!TRACKS_ENABLED) {
-    Object.values(TRACK_LAYERS).forEach(l => map.removeLayer(l));
-    Object.values(TRACK_DECORATORS).forEach(d => map.removeLayer(d));
-    TRACK_LAYERS = {};
-    TRACK_DECORATORS = {};
-    TRACK_HISTORY = {};
-    return;
-  }
-
-  states.forEach(s => {
-    const cs = normalizeCallsign(s[1] || s[0]);
-    const lat = s[6];
-    const lon = s[5];
-    if (!cs || lat == null || lon == null) return;
-
-    if (!TRACK_HISTORY[cs]) TRACK_HISTORY[cs] = [];
-    TRACK_HISTORY[cs].push([lat, lon]);
-    if (TRACK_HISTORY[cs].length > 60) TRACK_HISTORY[cs].shift();
-
-    if (TRACK_LAYERS[cs]) {
-      map.removeLayer(TRACK_LAYERS[cs]);
-      delete TRACK_LAYERS[cs];
-    }
-    if (TRACK_DECORATORS[cs]) {
-      map.removeLayer(TRACK_DECORATORS[cs]);
-      delete TRACK_DECORATORS[cs];
-    }
-
-    const poly = L.polyline(TRACK_HISTORY[cs], {
-      color: "#2563eb",
-      weight: 2,
-      opacity: 0.7
-    }).addTo(map);
-    TRACK_LAYERS[cs] = poly;
-
-    const decorator = L.polylineDecorator(poly, {
-      patterns: [
-        {
-          offset: "100%",
-          repeat: 0,
-          symbol: L.Symbol.arrowHead({
-            pixelSize: 10,
-            polygon: false,
-            pathOptions: { color: "#1d4ed8", weight: 2 }
-          })
-        }
-      ]
-    }).addTo(map);
-    TRACK_DECORATORS[cs] = decorator;
-  });
-}
-
-/* ============================================================================
-   14) PANNEAU AVION SÉLECTIONNÉ
-============================================================================ */
-function showPlaneInfo(cs) {
-  const info = ADSB_BY_CALLSIGN[cs];
-  const box = document.getElementById("plane-info");
-
-  if (!info) {
-    box.style.display = "none";
-    return;
-  }
-
-  const hue = (info.heading || 0) % 360;
-  const color = `hsl(${hue}, 80%, 55%)`;
-
-  box.style.borderLeftColor = color;
-  box.style.display = "block";
-
-  box.innerHTML = `
-    <div style="font-weight:600; margin-bottom:0.25rem;">
-      <span style="color:${color}; vertical-align:middle; margin-right:0.25rem;">
-        ${PLANE_ICON_SVG}
-      </span>
-      ${info.callsign || info.icao}
-    </div>
-    Latitude : ${info.lat?.toFixed(4)}<br>
-    Longitude : ${info.lon?.toFixed(4)}<br>
-    Altitude : ${info.altitude ? info.altitude + " ft" : "N/A"}<br>
-    Vitesse sol : ${info.speed ? info.speed + " kt" : "N/A"}<br>
-    Taux vertical : ${info.verticalRate ? info.verticalRate + " ft/min" : "N/A"}<br>
-    Cap : ${info.heading ? info.heading + "°" : "N/A"}<br>
-    Sol : ${info.onGround ? "Oui" : "Non"}<br>
-    Dernière mise à jour : ${new Date(info.lastSeen).toLocaleTimeString()}<br>
-  `;
-}
-
-function hidePlaneInfo() {
-  const box = document.getElementById("plane-info");
-  box.style.display = "none";
-}
-
-/* ============================================================================
-   15) METAR
-============================================================================ */
-async function fetchMetar() {
-  if (!AVWX_TOKEN) return null;
-  try {
-    const r = await fetch(`https://avwx.rest/api/metar/${AVWX_ICAO}?token=${AVWX_TOKEN}`);
-    if (!r.ok) throw new Error("METAR HTTP " + r.status);
-    return await r.json();
-  } catch (e) {
-    console.warn("Erreur METAR :", e);
-    return null;
-  }
-}
-
-function updateMetarUI(m) {
-  const summary = document.getElementById("meteo-summary");
-  const raw = document.getElementById("meteo-raw");
-
-  if (!m) {
-    summary.textContent = "METAR indisponible";
-    raw.textContent = "";
-    return;
-  }
-
-  summary.innerHTML = `
-    Vent : ${m.wind_direction?.repr || "///"}° ${m.wind_speed?.repr || "0"} kt<br>
-    Temp : ${m.temperature?.repr || "N/A"}°C – QNH ${m.altimeter?.value || "N/A"} hPa
-  `;
-  raw.textContent = m.raw || "";
-}
-
-/* ============================================================================
-   16) FIDS — Version GET
-============================================================================ */
-async function fetchFIDS() {
-  try {
-    const rArr = await fetch(FIDS_URL_ARR);
-    const rDep = await fetch(FIDS_URL_DEP);
-
-    if (!rArr.ok || !rDep.ok) {
-      console.warn("Erreur HTTP FIDS :", rArr.status, rDep.status);
-      return { arrivals: [], departures: [] };
-    }
-
-    const arr = await rArr.json();
-    const dep = await rDep.json();
-
-    LAST_FIDS = {
-      arrivals: arr || [],
-      departures: dep || []
-    };
-
-    return LAST_FIDS;
-  } catch (e) {
-    console.warn("Erreur FIDS :", e);
-    return { arrivals: [], departures: [] };
-  }
-}
-
-function updateFlightsUI(fids) {
-  const box = document.getElementById("flights-list");
-  const arr = fids.arrivals || [];
-  const dep = fids.departures || [];
-  const list = [...arr, ...dep];
-
-  if (!list.length) {
-    box.textContent = "Aucun vol.";
-    return;
-  }
-
-  let html = `<table><thead><tr>
-    <th>Type</th><th>Vol</th><th>Orig/Dest</th><th>Heure</th>
-  </tr></thead><tbody>`;
-
-  list.forEach(v => {
-    html += `
-      <tr onclick="showFlightDetail('${(v.flight || "").replace(/'/g, "")}')">
-        <td>${v.type || ""}</td>
-        <td>${v.flight || ""}</td>
-        <td>${v.origin || v.destination || ""}</td>
-        <td>${v.time || v.sched || ""}</td>
-      </tr>`;
-  });
-
-  html += `</tbody></table>`;
-  box.innerHTML = html;
-}
-
-function showFlightDetail(id) {
-  const box = document.getElementById("flight-detail");
-  if (!LAST_FIDS) {
-    box.textContent = "Aucune donnée FIDS.";
-    return;
-  }
-
-  const all = [...(LAST_FIDS.arrivals || []), ...(LAST_FIDS.departures || [])];
-  const v = all.find(x => x.flight === id);
-
-  if (!v) {
-    box.textContent = "Vol introuvable.";
-    return;
-  }
-
-  box.innerHTML = `
-    Vol : ${v.flight}<br>
-    Origine : ${v.origin}<br>
-    Destination : ${v.destination}<br>
-    Heure prévue : ${v.time || v.sched}<br>
-    Statut : ${v.status || "N/A"}<br>
-  `;
-}
-
-/* ============================================================================
-   17) LOGIQUE PISTE
-============================================================================ */
-function extractRunway(fids) {
-  const list = [...(fids.arrivals || []), ...(fids.departures || [])];
-  for (const v of list) {
-    if (v.runway) {
-      const n = v.runway.replace(/[^0-9]/g, "");
-      const r = EBLG.runways.find(x => x.name === n);
-      if (r) return r;
-    }
-  }
-  return null;
-}
-
-function runwayFromMetar(m) {
-  if (!m || !m.wind_direction?.value) return null;
-  const dir = m.wind_direction.value;
-  let best = null;
-
-  EBLG.runways.forEach(r => {
-    const diff = Math.abs(((r.heading - dir + 540) % 360) - 180);
-    if (diff <= HEAD_TOL && (!best || diff < best.diff)) {
-      best = { name: r.name, heading: r.heading, diff };
-    }
-  });
-
-  return best;
-}
-
-/* ============================================================================
-   18) COLORATION DES SONOMETRES
-============================================================================ */
-function updateSonoColors(runwayName) {
-  const impacted = [];
-
-  SONOS.forEach(s => {
-    const m = SONO_MARKERS[s.id];
-    if (!m) return;
-
-    let color = COLOR.gray;
-    if (runwayName === "04") color = COLOR.green;
-    if (runwayName === "22") color = COLOR.red;
-
-    m.setStyle({ color, fillColor: color });
-    impacted.push(s.id);
-  });
-
-  document.getElementById("sonos-impacted").textContent =
-    impacted.length ? impacted.join(", ") : "Aucun";
-}
-
-/* ============================================================================
-   19) HEATMAP BRUIT
-============================================================================ */
-function computeImpacted(heading) {
-  const poly =
-    heading === RWY04_HEADING ? RWY04_EXT_POLY :
-    heading === RWY22_HEADING ? RWY22_EXT_POLY :
-    buildDepartureTrapezoid(heading);
-
-  const impacted = [];
-  SONOS.forEach(s => {
-    if (pointInPolygon([s.lat, s.lon], poly)) {
-      impacted.push([s.lat, s.lon, 1]);
-    }
-  });
-  return impacted;
-}
-
-function updateHeatmap(list) {
-  if (heatLayer) {
-    map.removeLayer(heatLayer);
-    heatLayer = null;
-  }
-  if (!HEATMAP_ENABLED || !list.length) return;
-  heatLayer = L.heatLayer(list, { radius: 25, blur: 15, maxZoom: 15 }).addTo(map);
-}
-
-/* ============================================================================
-   20) TRAPÈZES DÉPART & ARRIVÉE + FLÈCHES
-============================================================================ */
-function updateCorridor() {
-  if (departureLayer) { map.removeLayer(departureLayer); departureLayer = null; }
-  if (arrivalLayer)   { map.removeLayer(arrivalLayer);   arrivalLayer = null; }
-  if (departureArrow) { map.removeLayer(departureArrow); departureArrow = null; }
-  if (arrivalArrow)   { map.removeLayer(arrivalArrow);   arrivalArrow = null; }
-
-  if (!CORRIDOR_ENABLED || !lastHeading) return;
-
-  const depPoly = buildDepartureTrapezoid(lastHeading);
-  const arrPoly = buildArrivalTrapezoid((lastHeading + 180) % 360);
-  
-/* Labels DEP / ARR */
-const depStart =
-  lastHeading === 40 ? RWY04_START :
-  lastHeading === 220 ? RWY22_START :
-  [EBLG.lat, EBLG.lon];
-
-const arrEnd =
-  lastHeading === 40 ? RWY04_END :
-  lastHeading === 220 ? RWY22_END :
-  [EBLG.lat, EBLG.lon];
-
-/* Label DEP (orange) */
-L.marker(
-  computePoint(depStart, lastHeading, 1.2),
-  {
-    icon: L.divIcon({
-      html: `<div style="
-        color:#f97316;
-        font-weight:700;
-        font-size:14px;
-        text-shadow:0 0 3px white;
-      ">DEP</div>`
-    })
-  }
-).addTo(map);
-
-/* Label ARR (bleu) */
-L.marker(
-  computePoint(arrEnd, (lastHeading + 180) % 360, 1.0),
-  {
-    icon: L.divIcon({
-      html: `<div style="
-        color:#2563eb;
-        font-weight:700;
-        font-size:14px;
-        text-shadow:0 0 3px white;
-      ">ARR</div>`
-    })
-  }
-).addTo(map);
-
-
-  const depCenterLine = [
-    computePoint([EBLG.lat, EBLG.lon], lastHeading, 1.0),
-    computePoint([EBLG.lat, EBLG.lon], lastHeading, 8.0)
-  ];
-  const arrCenterLine = [
-    computePoint([EBLG.lat, EBLG.lon], (lastHeading + 180) % 360, 1.0),
-    computePoint([EBLG.lat, EBLG.lon], (lastHeading + 180) % 360, 4.0)
-  ];
-
-  const depLine = L.polyline(depCenterLine, { color: "#f97316", weight: 0 }).addTo(map);
-  const arrLine = L.polyline(arrCenterLine, { color: "#2563eb", weight: 0 }).addTo(map);
-
-  departureArrow = L.polylineDecorator(depLine, {
-    patterns: [{
-      offset: "100%",
-      repeat: 0,
-      symbol: L.Symbol.arrowHead({
-        pixelSize: 12,
-        polygon: true,
-        pathOptions: { color: "#f97316", weight: 2, fillOpacity: 1 }
-      })
-    }]
-  }).addTo(map);
-
-  arrivalArrow = L.polylineDecorator(arrLine, {
-    patterns: [{
-      offset: "100%",
-      repeat: 0,
-      symbol: L.Symbol.arrowHead({
-        pixelSize: 10,
-        polygon: true,
-        pathOptions: { color: "#2563eb", weight: 2, fillOpacity: 1 }
-      })
-    }]
-  }).addTo(map);
-}
-
-/* ============================================================================
-   21) DIAPASON (BRUIT TEMPS RÉEL)
-============================================================================ */
-const SENSOR_MAP = {
-  "F017": "F017",
-  "F001": "F001",
-  "F014": "F014",
-  "F015": "F015",
-  "F005": "F005",
-  "F003": "F003",
-  "F011": "F011",
-  "F008": "F008",
-  "F002": "F002",
-  "F007": "F007",
-  "F009": "F009",
-  "F004": "F004",
-  "F010": "F010",
-  "F013": "F013",
-  "F016": "F016",
-  "F006": "F006",
-  "F012": "F012"
-};
-
-let LIVE_NOISE = {};
-let NOISE_HISTORY = {};
-
-function updateNoiseUI(list) {
-  const box = document.getElementById("noise-live");
-  if (!list.length) {
-    box.textContent = "Aucune mesure.";
-    return;
-  }
-
-  let html = "";
-  list.forEach(n => {
-    html += `
-      <div>
-        <span class="badge">${n.id}</span>
-        <b>${n.value.toFixed(1)} dB(A)</b>
-        – ${new Date(n.time).toLocaleTimeString()}
-      </div>`;
-  });
-
-  box.innerHTML = html;
-}
-
-if (HUB_URL) {
-  const connection = new signalR.HubConnectionBuilder().withUrl(HUB_URL).build();
-
-  connection.on("addNoiseMeasure", (sensorId, payload) => {
-    const sonoId = SENSOR_MAP[sensorId];
-    if (!sonoId) return;
-
-    const value = payload.value || payload.Leq || 0;
-    const time = payload.time || Date.now();
-
-    LIVE_NOISE[sonoId] = { id: sonoId, value, time };
-
-    if (!NOISE_HISTORY[sonoId]) NOISE_HISTORY[sonoId] = [];
-    NOISE_HISTORY[sonoId].push({ time, value });
-    if (NOISE_HISTORY[sonoId].length > 300) NOISE_HISTORY[sonoId].shift();
-
-    updateNoiseUI(Object.values(LIVE_NOISE));
-  });
-
-  connection.start().catch(e => console.warn("SignalR error:", e));
-}
-
-/* ============================================================================
-   22) ALERTES METEO
-============================================================================ */
-function computeAlerts(metar, rw) {
-  const box = document.getElementById("alerts");
-  const alerts = [];
-
-  if (!metar) {
-    box.innerHTML = `<div class="alert warn">METAR indisponible.</div>`;
-    return;
-  }
-
-  const wind = metar.wind_speed?.value || 0;
-  const gust = metar.wind_gust?.value || 0;
-  const vis  = metar.visibility?.value || 9999;
-
-  if (wind >= 20) alerts.push({ level: "warn", msg: `Vent soutenu ${wind} kt.` });
-  if (gust >= 30) alerts.push({ level: "danger", msg: `Rafales ${gust} kt.` });
-  if (vis < 3000) alerts.push({ level: "warn", msg: `Visibilité réduite ${vis} m.` });
-
-  if (rw && metar.wind_direction?.value) {
-    const dir = metar.wind_direction.value;
-    const diff = Math.abs(((rw.heading - dir + 540) % 360) - 180);
-    if (diff > 60) alerts.push({ level: "warn", msg: `Vent de travers marqué sur piste ${rw.name}.` });
-  }
-
-  if (!alerts.length) {
-    box.innerHTML = `<div class="alert">Aucune alerte particulière.</div>`;
-    return;
-  }
-
-  box.innerHTML = alerts.map(a =>
-    `<div class="alert ${a.level}">${a.msg}</div>`
-  ).join("");
-}
-
-/* ============================================================================
-   23) DETECTION DECOLLAGES (HOOKS)
-============================================================================ */
-function detectTakeoff04(states) {}
-function detectTakeoff22(states) {}
-
-/* ============================================================================
-   24) TOGGLES UI
-============================================================================ */
-document.getElementById("toggle-tracks").onclick = () => {
-  TRACKS_ENABLED = !TRACKS_ENABLED;
-  document.getElementById("toggle-tracks").textContent =
-    `Trajectoires : ${TRACKS_ENABLED ? "ON" : "OFF"}`;
-
-  if (!TRACKS_ENABLED) {
-    Object.values(TRACK_LAYERS).forEach(l => map.removeLayer(l));
-    Object.values(TRACK_DECORATORS).forEach(d => map.removeLayer(d));
-    TRACK_LAYERS = {};
-    TRACK_DECORATORS = {};
-    TRACK_HISTORY = {};
-  }
-};
-
-document.getElementById("toggle-heatmap").onclick = () => {
-  HEATMAP_ENABLED = !HEATMAP_ENABLED;
-  document.getElementById("toggle-heatmap").textContent =
-    `Heatmap : ${HEATMAP_ENABLED ? "ON" : "OFF"}`;
-
-  if (!HEATMAP_ENABLED && heatLayer) {
-    map.removeLayer(heatLayer);
-    heatLayer = null;
-  }
-};
-
-document.getElementById("toggle-corridor").onclick = () => {
-  CORRIDOR_ENABLED = !CORRIDOR_ENABLED;
-  document.getElementById("toggle-corridor").textContent =
-    `Corridor : ${CORRIDOR_ENABLED ? "ON" : "OFF"}`;
-  updateCorridor();
-};
-
-document.getElementById("toggle-sonos").onclick = () => {
-  SONOS_ENABLED = !SONOS_ENABLED;
-  document.getElementById("toggle-sonos").textContent =
-    `Sonomètres : ${SONOS_ENABLED ? "ON" : "OFF"}`;
-
-  Object.values(SONO_MARKERS).forEach(m => {
-    if (SONOS_ENABLED) m.addTo(map);
-    else map.removeLayer(m);
-  });
-};
-
-document.getElementById("reset-map").onclick = () => {
-  map.setView([EBLG.lat, EBLG.lon], 11);
-};
-
-/* ============================================================================
-   25) BOUCLE DE RAFRAÎCHISSEMENT
-============================================================================ */
-async function refresh() {
-  const metar = await fetchMetar();
-  updateMetarUI(metar);
-
-  const fids = await fetchFIDS();
-  updateFlightsUI(fids);
-
-  const rwF = extractRunway(fids);
-  const rwM = runwayFromMetar(metar);
-  const rw  = rwF || rwM;
-
-  if (rw) {
-    lastHeading = rw.heading;
-    lastRunway  = rw.name;
-    document.getElementById("runway-info").textContent =
-      `Piste active : ${rw.name} (cap ${rw.heading}°)`;
-  } else {
-    document.getElementById("runway-info").textContent = "Piste active : inconnue";
-  }
-
-  if (rw) updateSonoColors(rw.name);
-
-  const impacted = rw ? computeImpacted(rw.heading) : [];
-  updateHeatmap(impacted);
-
-  updateCorridor();
-  computeAlerts(metar, rw);
-
-  const adsb = await fetchADSB();
-  updateADSB(adsb);
-
-  detectTakeoff04(adsb);
-  detectTakeoff22(adsb);
-}
-
-setInterval(refresh, 5000);
-refresh();
+/* CONFIG */
+const AVWX_TOKEN="ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc",AVWX_ICAO="EBLG";
+const FIDS_PROXY="https://eblg-proxy.onrender.com/fids?url=",FIDS_URL_ARR=FIDS_PROXY+encodeURIComponent("https://fids.liegeairport.com/api/flights/Arrivals"),FIDS_URL_DEP=FIDS_PROXY+encodeURIComponent("https://fids.liegeairport.com/api/flights/Departures");
+const ADSB_URL="https://opensky-network.org/api/states/all";
+const EBLG={lat:50.6374,lon:5.4432,runways:[{name:"04",heading:40},{name:"22",heading:220}]};
+let LAST_FIDS=null,FIDS_FILTER="all";
+let HEATMAP_ENABLED=true,TRACKS_ENABLED=true,CORRIDOR_ENABLED=true,SONOS_ENABLED=true;
+let lastHeading=null,lastRunway=null,heatLayer=null,departureLayer=null,arrivalLayer=null,departureArrow=null,arrivalArrow=null;
+/* CARTE */
+const map=L.map("map").setView([EBLG.lat,EBLG.lon],11);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"&copy; OpenStreetMap"}).addTo(map);
+/* GRADIENTS (jaune/violet) */
+setTimeout(()=>{const svg=document.querySelector("svg");if(!svg)return;const defs=document.createElementNS("http://www.w3.org/2000/svg","defs");defs.innerHTML=`
+<linearGradient id="grad-dep" x1="0%" y1="0%" x2="0%" y2="100%">
+  <stop offset="0%" stop-color="#eab308" stop-opacity="0.35"/>
+  <stop offset="100%" stop-color="#eab308" stop-opacity="0.05"/>
+</linearGradient>
+<linearGradient id="grad-arr" x1="0%" y1="0%" x2="0%" y2="100%">
+  <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.35"/>
+  <stop offset="100%" stop-color="#7c3aed" stop-opacity="0.05"/>
+</linearGradient>`;svg.appendChild(defs);},100);
+/* SONOMÈTRES */
+const SONOS=[{id:"F017",lat:50.764883,lon:5.630606},{id:"F001",lat:50.738044,lon:5.608833},{id:"F014",lat:50.718894,lon:5.573164},{id:"F015",lat:50.688839,lon:5.526217},{id:"F005",lat:50.639331,lon:5.323519},{id:"F003",lat:50.601167,lon:5.3814},{id:"F011",lat:50.601142,lon:5.355006},{id:"F008",lat:50.594878,lon:5.35895},{id:"F002",lat:50.588414,lon:5.370522},{id:"F007",lat:50.590756,lon:5.344114},{id:"F009",lat:50.580831,lon:5.355417},{id:"F004",lat:50.605414,lon:5.321406},{id:"F010",lat:50.599392,lon:5.313492},{id:"F013",lat:50.586914,lon:5.308678},{id:"F016",lat:50.619617,lon:5.295344},{id:"F006",lat:50.609594,lon:5.271403},{id:"F012",lat:50.621917,lon:5.254747}];
+const SONO_MARKERS={};SONOS.forEach(s=>{const m=L.circleMarker([s.lat,s.lon],{radius:6,color:"#4b5563",fillColor:"#9ca3af",fillOpacity:.9}).addTo(map);m.bindPopup(s.id);SONO_MARKERS[s.id]=m;});
+/* GÉO */
+const toRad=d=>d*Math.PI/180,toDeg=r=>r*180/Math.PI;
+function computePoint([lat,lon],hdg,distKm){const R=6371,br=toRad(hdg),dR=distKm/R,lat1=toRad(lat),lon1=toRad(lon);const lat2=Math.asin(Math.sin(lat1)*Math.cos(dR)+Math.cos(lat1)*Math.sin(dR)*Math.cos(br));const lon2=lon1+Math.atan2(Math.sin(br)*Math.sin(dR)*Math.cos(lat1),Math.cos(dR)-Math.sin(lat1)*Math.sin(lat2));return[toDeg(lat2),toDeg(lon2)]}
+/* SEUILS */
+const RWY04_START=[50.63795,5.4438],RWY04_END=[50.6436,5.452],RWY22_START=RWY04_END,RWY22_END=RWY04_START;
+/* TRAPÈZES */
+function buildDepartureTrapezoid(h){const start=h===40?RWY04_START:h===220?RWY22_START:[EBLG.lat,EBLG.lon],nl=computePoint(start,h-90,.3),nr=computePoint(start,h+90,.3),fl=computePoint(start,h-90,8),fr=computePoint(start,h+90,8);return[nl,nr,fr,fl]}
+function buildArrivalTrapezoid(h){const end=h===40?RWY04_END:h===220?RWY22_END:[EBLG.lat,EBLG.lon],nl=computePoint(end,h-90,.15),nr=computePoint(end,h+90,.15),fl=computePoint(end,h-90,3),fr=computePoint(end,h+90,3);return[nl,nr,fr,fl]}
+/* FIDS */
+async function fetchFIDS(){try{const rA=await fetch(FIDS_URL_ARR),rD=await fetch(FIDS_URL_DEP);if(!rA.ok||!rD.ok)return{arrivals:[],departures:[]};const arr=await rA.json(),dep=await rD.json();LAST_FIDS={arrivals:arr||[],departures:dep||[]};return LAST_FIDS}catch{return{arrivals:[],departures:[]}}}
+function applyFidsFilter(f){let list=[];if(FIDS_FILTER==="all")list=[...f.arrivals,...f.departures];else if(FIDS_FILTER==="dep")list=[...f.departures];else if(FIDS_FILTER==="arr")list=[...f.arrivals];return list.filter(v=>v.status&&v.status.toLowerCase().includes("confirm")).slice(0,10)}
+function updateFlightsUI(f){const box=document.getElementById("flights-list"),list=applyFidsFilter(f);if(!list.length){box.textContent="Aucun vol.";return}let html=`<table><thead><tr><th>Type</th><th>Vol</th><th>Orig/Dest</th><th>Heure</th></tr></thead><tbody>`;list.forEach(v=>{html+=`<tr><td>${v.type||""}</td><td>${v.flight||""}</td><td>${v.origin||v.destination||""}</td><td>${v.time||v.sched||""}</td></tr>`});html+="</tbody></table>";box.innerHTML=html}
+document.querySelectorAll("#fids-tabs span").forEach(t=>{t.onclick=()=>{document.querySelectorAll("#fids-tabs span").forEach(x=>x.classList.remove("active"));t.classList.add("active");FIDS_FILTER=t.dataset.tab;LAST_FIDS&&updateFlightsUI(LAST_FIDS)}});
+/* METAR */
+async function fetchMetar(){try{const r=await fetch(`https://avwx.rest/api/metar/${AVWX_ICAO}?token=${AVWX_TOKEN}`);if(!r.ok)return null;return await r.json()}catch{return null}}
+function updateMetarUI(m){const s=document.getElementById("meteo-summary"),r=document.getElementById("meteo-raw");if(!m){s.textContent="METAR indisponible";r.textContent="";return}s.innerHTML=`Vent : ${m.wind_direction?.repr||"///"}° ${m.wind_speed?.repr||"0"} kt<br>Temp : ${m.temperature?.repr||"N/A"}°C – QNH ${m.altimeter?.value||"N/A"} hPa`;r.textContent=m.raw||""}
+/* RUNWAY */
+function extractRunway(f){const list=[...f.arrivals,...f.departures];for(const v of list){if(v.runway){const n=v.runway.replace(/[^0-9]/g,""),r=EBLG.runways.find(x=>x.name===n);if(r)return r}}return null}
+function runwayFromMetar(m){if(!m||!m.wind_direction?.value)return null;const dir=m.wind_direction.value;let best=null;EBLG.runways.forEach(r=>{const diff=Math.abs(((r.heading-dir+540)%360)-180);if(diff<=15&&(!best||diff<best.diff))best={name:r.name,heading:r.heading,diff}});return best}
+/* SONOS COLOR */
+function updateSonoColors(rwy){const impacted=[];SONOS.forEach(s=>{const m=SONO_MARKERS[s.id];if(!m)return;let c="#6b7280";if(rwy==="04")c="#22c55e";if(rwy==="22")c="#ef4444";m.setStyle({color:c,fillColor:c});impacted.push(s.id)});document.getElementById("sonos-impacted").textContent=impacted.length?impacted.join(", "):"Aucun"}
+/* HEATMAP */
+function pointInPolygon(p,poly){let x=p[1],y=p[0],inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){let xi=poly[i][1],yi=poly[i][0],xj=poly[j][1],yj=poly[j][0];let intersect=((yi>y)!=(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi);if(intersect)inside=!inside}return inside}
+function computeImpacted(h){const poly=buildDepartureTrapezoid(h);const imp=[];SONOS.forEach(s=>{if(pointInPolygon([s.lat,s.lon],poly))imp.push([s.lat,s.lon,1])});return imp}
+function updateHeatmap(list){if(heatLayer){map.removeLayer(heatLayer);heatLayer=null}if(!HEATMAP_ENABLED||!list.length)return;heatLayer=L.heatLayer(list,{radius:25,blur:15,maxZoom:15}).addTo(map)}
+/* OPTIONS CORRIDOR */
+let SHOW_DEP=true,SHOW_ARR=true,SHOW_LABELS=true,SHOW_GRADIENT=true;
+document.getElementById("chk-dep").onchange=e=>{SHOW_DEP=e.target.checked;updateCorridor()};
+document.getElementById("chk-arr").onchange=e=>{SHOW_ARR=e.target.checked;updateCorridor()};
+document.getElementById("chk-labels").onchange=e=>{SHOW_LABELS=e.target.checked;updateCorridor()};
+document.getElementById("chk-gradient").onchange=e=>{SHOW_GRADIENT=e.target.checked;updateCorridor()};
+/* CORRIDOR */
+function updateCorridor(){if(departureLayer){map.removeLayer(departureLayer);departureLayer=null}if(arrivalLayer){map.removeLayer(arrivalLayer);arrivalLayer=null}if(departureArrow){map.removeLayer(departureArrow);departureArrow=null}if(arrivalArrow){map.removeLayer(arrivalArrow);arrivalArrow=null}if(!CORRIDOR_ENABLED||!lastHeading)return;const depPoly=buildDepartureTrapezoid(lastHeading),arrPoly=buildArrivalTrapezoid((lastHeading+180)%360);if(SHOW_DEP){departureLayer=L.polygon(depPoly,{color:"#eab308",weight:1,fillOpacity:1,fillColor:SHOW_GRADIENT?"url(#grad-dep)":"#eab308"}).addTo(map)}if(SHOW_ARR){arrivalLayer=L.polygon(arrPoly,{color:"#7c3aed",weight:1,fillOpacity:1,fillColor:SHOW_GRADIENT?"url(#grad-arr)":"#7c3aed"}).addTo(map)}const depStart=lastHeading===40?RWY04_START:lastHeading===220?RWY22_START:[EBLG.lat,EBLG.lon],arrEnd=lastHeading===40?RWY04_END:lastHeading===220?RWY22_END:[EBLG.lat,EBLG.lon];if(SHOW_LABELS){L.marker(computePoint(depStart,lastHeading,1.2),{icon:L.divIcon({html:`<div style="color:#eab308;font-weight:700;font-size:14px;text-shadow:0 0 3px white;">DEP</div>`})}).addTo(map);L.marker(computePoint(arrEnd,(lastHeading+180)%360,1),{icon:L.divIcon({html:`<div style="color:#7c3aed;font-weight:700;font-size:14px;text-shadow:0 0 3px white;">ARR</div>`})}).addTo(map)}const depLine=L.polyline([computePoint(depStart,lastHeading,.5),computePoint(depStart,lastHeading,6)],{color:"#eab308",weight:0}).addTo(map);departureArrow=L.polylineDecorator(depLine,{patterns:[{offset:"100%",repeat:0,symbol:L.Symbol.arrowHead({pixelSize:12,polygon:true,pathOptions:{color:"#eab308",weight:2,fillOpacity:1}})}]}).addTo(map);const arrLine=L.polyline([computePoint(arrEnd,(lastHeading+180)%360,.5),computePoint(arrEnd,(lastHeading+180)%360,3)],{color:"#7c3aed",weight:0}).addTo(map);arrivalArrow=L.polylineDecorator(arrLine,{patterns:[{offset:"100%",repeat:0,symbol:L.Symbol.arrowHead({pixelSize:10,polygon:true,pathOptions:{color:"#7c3aed",weight:2,fillOpacity:1}})}]}).addTo(map);document.getElementById("corridor-info").innerHTML=lastRunway?`Piste : ${lastRunway} – cap ${lastHeading}°`:`Piste indéterminée – corridor affiché par défaut sur 22`}
+/* ADS-B */
+async function fetchADSB(){try{const r=await fetch(ADSB_URL);if(!r.ok)throw new Error("ADS-B HTTP "+r.status);const d=await r.json();return d.states||[]}catch(e){console.warn("Erreur ADS-B :",e);return[]}}
+let ADSB_MARKERS={},ADSB_BY_CALLSIGN={},TRACK_HISTORY={},TRACK_LAYERS={},TRACK_DECORATORS={},SELECTED_PLANE=null;
+const normalizeCallsign=t=>t?String(t).trim().toUpperCase():null;
+const PLANE_ICON_SVG=`<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M2.5 19l8.5-7-8.5-7v4.5l5 2.5-5 2.5V19zm9.5 0l8.5-7-8.5-7v4.5l5 2.5-5 2.5V19z"/></svg>`;
+function planeIconFor(track,color){return L.divIcon({className:"plane-icon",html:`<div style="transform:rotate(${track.heading||0}deg);color:${color};">${PLANE_ICON_SVG}</div>`,iconSize:[24,24],iconAnchor:[12,12]})}
+function updateADSB(states){const seen=new Set();states.forEach(s=>{const cs=normalizeCallsign(s[1]||s[0]),lat=s[6],lon=s[5],hdg=s[10]||0;if(!cs||lat==null||lon==null)return;seen.add(cs);const pos=[lat,lon],color="#eab308";if(!ADSB_MARKERS[cs]){const m=L.marker(pos,{icon:planeIconFor({heading:hdg},color)}).addTo(map);m.on("click",()=>{SELECTED_PLANE=cs;showPlaneInfo(cs)});ADSB_MARKERS[cs]=m}else{ADSB_MARKERS[cs].setLatLng(pos);ADSB_MARKERS[cs].setIcon(planeIconFor({heading:hdg},color))}ADSB_BY_CALLSIGN[cs]={callsign:cs,icao:s[0],lat,lon,altitude:s[7],speed:s[9],verticalRate:s[11],heading:hdg,onGround:!!s[8],lastSeen:Date.now()}});Object.keys(ADSB_MARKERS).forEach(cs=>{if(!seen.has(cs)){map.removeLayer(ADSB_MARKERS[cs]);delete ADSB_MARKERS[cs];delete ADSB_BY_CALLSIGN[cs];if(TRACK_HISTORY[cs])delete TRACK_HISTORY[cs];if(TRACK_LAYERS[cs]){map.removeLayer(TRACK_LAYERS[cs]);delete TRACK_LAYERS[cs]}if(TRACK_DECORATORS[cs]){map.removeLayer(TRACK_DECORATORS[cs]);delete TRACK_DECORATORS[cs]}if(SELECTED_PLANE===cs){SELECTED_PLANE=null;hidePlaneInfo()}}});updateTracks(states)}
+function updateTracks(states){if(!TRACKS_ENABLED){Object.values(TRACK_LAYERS).forEach(l=>map.removeLayer(l));Object.values(TRACK_DECORATORS).forEach(d=>map.removeLayer(d));TRACK_LAYERS={};TRACK_DECORATORS={};TRACK_HISTORY={};return}states.forEach(s=>{const cs=normalizeCallsign(s[1]||s[0]),lat=s[6],lon=s[5];if(!cs||lat==null||lon==null)return;TRACK_HISTORY[cs]||(TRACK_HISTORY[cs]=[]);TRACK_HISTORY[cs].push([lat,lon]);TRACK_HISTORY[cs].length>60&&TRACK_HISTORY[cs].shift();if(TRACK_LAYERS[cs]){map.removeLayer(TRACK_LAYERS[cs]);delete TRACK_LAYERS[cs]}if(TRACK_DECORATORS[cs]){map.removeLayer(TRACK_DECORATORS[cs]);delete TRACK_DECORATORS[cs]}const poly=L.polyline(TRACK_HISTORY[cs],{color:"#7c3aed",weight:2,opacity:.7}).addTo(map);TRACK_LAYERS[cs]=poly;const deco=L.polylineDecorator(poly,{patterns:[{offset:"100%",repeat:0,symbol:L.Symbol.arrowHead({pixelSize:10,polygon:false,pathOptions:{color:"#7c3aed",weight:2}})}]}).addTo(map);TRACK_DECORATORS[cs]=deco})}
+/* AVION SÉLECTIONNÉ */
+function showPlaneInfo(cs){const info=ADSB_BY_CALLSIGN[cs],box=document.getElementById("plane-info");if(!info){box.style.display="none";return}const hue=(info.heading||0)%360,color=`hsl(${hue},80%,55%)`;box.style.borderLeftColor=color;box.style.display="block";box.innerHTML=`
+<div style="font-weight:600;margin-bottom:.25rem;">
+  <span style="color:${color};vertical-align:middle;margin-right:.25rem;">${PLANE_ICON_SVG}</span>
+  ${info.callsign||info.icao}
+</div>
+Latitude : ${info.lat?.toFixed(4)}<br>
+Longitude : ${info.lon?.toFixed(4)}<br>
+Altitude : ${info.altitude?info.altitude+" ft":"N/A"}<br>
+Vitesse sol : ${info.speed?info.speed+" kt":"N/A"}<br>
+Taux vertical : ${info.verticalRate?info.verticalRate+" ft/min":"N/A"}<br>
+Cap : ${info.heading?info.heading+"°":"N/A"}<br>
+Sol : ${info.onGround?"Oui":"Non"}<br>
+Dernière mise à jour : ${new Date(info.lastSeen).toLocaleTimeString()}<br>`}
+function hidePlaneInfo(){document.getElementById("plane-info").style.display="none"}
+/* BOUTONS HEADER */
+document.getElementById("toggle-tracks").onclick=e=>{TRACKS_ENABLED=!TRACKS_ENABLED;e.target.textContent="Trajectoires : "+(TRACKS_ENABLED?"ON":"OFF")};
+document.getElementById("toggle-heatmap").onclick=e=>{HEATMAP_ENABLED=!HEATMAP_ENABLED;e.target.textContent="Heatmap : "+(HEATMAP_ENABLED?"ON":"OFF");};
+document.getElementById("toggle-corridor").onclick=e=>{CORRIDOR_ENABLED=!CORRIDOR_ENABLED;e.target.textContent="Corridor : "+(CORRIDOR_ENABLED?"ON":"OFF");updateCorridor()};
+document.getElementById("toggle-sonos").onclick=e=>{SONOS_ENABLED=!SONOS_ENABLED;e.target.textContent="Sonomètres : "+(SONOS_ENABLED?"ON":"OFF");Object.values(SONO_MARKERS).forEach(m=>m.setStyle({opacity:SONOS_ENABLED?1:0,fillOpacity:SONOS_ENABLED?.9:0}))};
+document.getElementById("reset-map").onclick=()=>{map.setView([EBLG.lat,EBLG.lon],11)};
+/* BOUCLE PRINCIPALE AVEC FALLBACK 22 */
+async function refresh(){const metar=await fetchMetar();updateMetarUI(metar);const fids=await fetchFIDS();updateFlightsUI(fids);const rwF=extractRunway(fids),rwM=runwayFromMetar(metar),rw=rwF||rwM;if(!rw){lastHeading=220;lastRunway=null;document.getElementById("runway-info").textContent="Piste active : indéterminée (fallback 22)";}else{lastHeading=rw.heading;lastRunway=rw.name;document.getElementById("runway-info").textContent=`Piste active : ${rw.name} (cap ${rw.heading}°)`}if(lastRunway)updateSonoColors(lastRunway);const impacted=rw?computeImpacted(rw.heading):computeImpacted(220);updateHeatmap(impacted);updateCorridor();const adsb=await fetchADSB();updateADSB(adsb)}
+setInterval(refresh,5000);refresh();
 </script>
-
 </body>
 </html>
-
-
