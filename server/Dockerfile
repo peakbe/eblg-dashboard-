@@ -1,24 +1,25 @@
-# Dockerfile - EBLG Dashboard (Backend + Front)
-
-# 1. Base Node (version LTS recommandée Render)
+# Base Node
 FROM node:18-slim
 
-# 2. Définir le dossier de travail
+# Workdir
 WORKDIR /app
 
-# 3. Copier les fichiers serveur
-COPY package.json package-lock.json* ./
-COPY app.js ./
-COPY data ./data
+# Copier package.json depuis /server
+COPY server/package.json ./package.json
+COPY server/package-lock.json ./package-lock.json
 
-# 4. Installer les dépendances
+# Installer dépendances serveur
 RUN npm install --production
 
-# 5. Copier le front-end (dossier public)
-COPY ../public ./public
+# Copier le backend complet
+COPY server/app.js ./app.js
+COPY server/data ./data
 
-# 6. Exposer le port dynamique fourni par Render
+# Copier le FRONT depuis /public
+COPY public ./public
+
+# Exposer port (Render utilisera PORT env)
 EXPOSE 10000
 
-# 7. Lancer le serveur
+# Start server
 CMD ["npm", "start"]
