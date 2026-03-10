@@ -1,25 +1,46 @@
-# Base Node
-FROM node:18-slim
+###############################################
+# 1) STAGE DE BUILD – Dépendances + Front
+###############################################
+FROM node:18-slim AS builder
 
-# Workdir
+# Dossier de travail
 WORKDIR /app
 
-# Copier package.json depuis /server
+########### BACK-END ###########
+# Copier package.json du serveur
 COPY server/package.json ./package.json
 COPY server/package-lock.json ./package-lock.json
 
-# Installer dépendances serveur
+# Installer les dépendances backend
 RUN npm install --production
 
 # Copier le backend complet
 COPY server/app.js ./app.js
 COPY server/data ./data
 
-# Copier le FRONT depuis /public
+########### FRONT-END ###########
+# Copier le dossier public
 COPY public ./public
 
-# Exposer port (Render utilisera PORT env)
+# (Optionnel) Optimisation front si besoin
+# Ici, pas de build front (HTML/CSS/JS statique simple)
+# Mais on pourrait ajouter minification future
+
+###############################################
+# 2) STAGE FINAL – Image ultra légère
+###############################################
+FROM node:18-slim AS runner
+
+WORKDIR /app
+
+# Copier uniquement ce qui est nécessaire au runtime
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/app.js ./app.js
+COPY --from=builder /app/data ./data
+COPY --from=builder /app/public ./public
+
+# Port géré par Render via variable ENV PORT
 EXPOSE 10000
 
-# Start server
 CMD ["npm", "start"]
