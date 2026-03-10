@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: eblg-dashboard
+    runtime: docker
+    envVars:
+      - key: AVWX_TOKEN
+        sync: false    # à ajouter dans Render manuellement ou via secrets
+      - key: AIRLABS_KEY
+        sync: false
+      - key: PORT
+        value: "10000"
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - server/**
+        - public/**
+        - render.yaml
+        - Dockerfile
