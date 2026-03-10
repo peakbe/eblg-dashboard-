@@ -23,10 +23,10 @@ app.use(morgan('dev'));
 app.use(cors());
 app.use(express.json());
 
-// FRONTEND statique
+// ---------------- FRONT-END STATIC ----------------
 app.use(express.static(path.join(__dirname, '../public')));
 
-// DATA store
+// ---------------- DATA ----------------
 const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
@@ -35,13 +35,12 @@ const alertsFile = path.join(dataDir, 'alerts.json');
 if (!fs.existsSync(noiseFile)) fs.writeFileSync(noiseFile, JSON.stringify([]));
 if (!fs.existsSync(alertsFile)) fs.writeFileSync(alertsFile, JSON.stringify([]));
 
-const readJSON = f => JSON.parse(fs.readFileSync(f, 'utf-8'));
+const readJSON = (f) => JSON.parse(fs.readFileSync(f, 'utf-8'));
 const writeJSON = (f, obj) => fs.writeFileSync(f, JSON.stringify(obj, null, 2));
 
-// CACHE
-const cache = new NodeCache({ stdTTL: 120, checkperiod: 60 });
+const cache = new NodeCache({ stdTTL: 120 });
 
-// --------------------- METAR ---------------------
+// ---------------- METAR ----------------
 app.get('/api/metar', async (req, res) => {
   const icao = (req.query.icao || 'EBLG').toUpperCase();
   try {
@@ -53,7 +52,7 @@ app.get('/api/metar', async (req, res) => {
   }
 });
 
-// --------------------- TAF ---------------------
+// ---------------- TAF ----------------
 app.get('/api/taf', async (req, res) => {
   const icao = (req.query.icao || 'EBLG').toUpperCase();
   try {
@@ -65,17 +64,19 @@ app.get('/api/taf', async (req, res) => {
   }
 });
 
-// --------------------- AirLabs FLIGHTS ---------------------
+// ---------------- AIRLABS ----------------
 const AIRPORT_IATA = 'LGG';
 
 app.get('/api/flights', async (req, res) => {
   try {
-    const akey = encodeURIComponent(AIRLABS_KEY);
     const base = 'https://api.airlabs.co/v9/flights';
+    const akey = encodeURIComponent(AIRLABS_KEY);
 
-    const dep  = await axios.get(`${base}?dep_iata=${AIRPORT_IATA}&api_key=${akey}`);
-    const arr  = await axios.get(`${base}?arr_iata=${AIRPORT_IATA}&api_key=${akey}`);
-    const over = await axios.get(`${base}?lat=50.637&lng=5.443&distance=50&api_key=${akey}`);
+    const [dep, arr, over] = await Promise.all([
+      axios.get(`${base}?dep_iata=${AIRPORT_IATA}&api_key=${akey}`),
+      axios.get(`${base}?arr_iata=${AIRPORT_IATA}&api_key=${akey}`),
+      axios.get(`${base}?lat=50.637&lng=5.443&distance=50&api_key=${akey}`)
+    ]);
 
     res.json({
       departures: dep.data.response || [],
@@ -87,13 +88,18 @@ app.get('/api/flights', async (req, res) => {
   }
 });
 
-// --------------------- Noise ---------------------
+// ---------------- NOISE ----------------
 app.get('/api/noise/latest', (req, res) => {
   const all = readJSON(noiseFile);
   res.json(all.at(-1) || null);
 });
 
-// --------------------- START SERVER ---------------------
+// ---------------- FALLBACK -> FRONT ----------------
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// ---------------- START SERVER ----------------
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
