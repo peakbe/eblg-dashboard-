@@ -24,7 +24,7 @@ app.use(cors());
 app.use(express.json());
 
 // ---------------- FRONT-END STATIC ----------------
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, './public')));
 
 // ---------------- DATA ----------------
 const dataDir = path.join(__dirname, 'data');
@@ -96,7 +96,7 @@ app.get('/api/noise/latest', (req, res) => {
 
 // ---------------- FALLBACK -> FRONT ----------------
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.sendFile(path.join(__dirname, './public/index.html'));
 });
 
 // ---------------- START SERVER ----------------
