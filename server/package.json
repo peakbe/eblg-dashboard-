@@ -1,77 +1,18 @@
-// Point in polygon (ray casting)
-function pointInPolygon(point, polygon){
-  const [x, y] = [point[1], point[0]]; // lon, lat
-  let inside = false;
-  for (let i=0, j=polygon.length-1; i<polygon.length; j=i++) {
-    const xi = polygon[i][1], yi = polygon[i][0];
-    const xj = polygon[j][1], yj = polygon[j][0];
-    const intersect = ((yi>y) !== (yj>y)) && (x < (xj - xi)*(y - yi)/(yj - yi) + xi);
-    if (intersect) inside = !inside;
+{
+  "name": "eblg-dashboard",
+  "version": "1.0.0",
+  "description": "EBLG Dashboard backend",
+  "main": "app.js",
+  "type": "module",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.18.2",
+    "morgan": "^1.10.0",
+    "node-cache": "^5.1.2"
   }
-  return inside;
-}
-
-function makeBeep(duration=150, frequency=880, volume=0.2){
-  try{
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = 'sine';
-    o.frequency.value = frequency;
-    o.connect(g);
-    g.gain.value = volume;
-    g.connect(ctx.destination);
-    o.start();
-    setTimeout(() => { o.stop(); ctx.close(); }, duration);
-  }catch(e){ /* no sound if blocked */ }
-}
-
-async function loadGeofences(){
-  const base = CONFIG.apiBase || '';
-  const res = await fetch(`${base}/api/geofences`);
-  const data = await res.json();
-  return data; // { name: [ [lat,lon]... ] or array of polygons }
-}
-
-function setupGeofenceWatcher(map, polygonsByName){
-  const alertsUl = document.getElementById('alerts-list');
-  const layers = {};
-
-  // Draw polygons (handle multiple polygons per name)
-  Object.entries(polygonsByName).forEach(([name, polys]) => {
-    if (!polys) return;
-    const arr = Array.isArray(polys[0][0]) ? polys : [polys];
-    arr.forEach(poly => {
-      L.polygon(poly.map(p => [p[0], p[1]]), { color:'#ffd166', weight:2, opacity:0.8, fillOpacity:0.08 })
-        .addTo(map).bindPopup(`<b>${name}</b>`);
-    });
-  });
-
-  const insideState = new Map();
-
-  return function handleFlights(allFlights){
-    const { departures=[], arrivals=[], over=[] } = allFlights;
-    const list = [...departures, ...arrivals, ...over];
-    const base = CONFIG.apiBase || '';
-
-    list.forEach(f => {
-      if (!f.lat || !f.lng) return;
-      const pos = [f.lat, f.lng];
-      Object.entries(polygonsByName).forEach(([name, polys]) => {
-        if (!polys) return;
-        const arr = Array.isArray(polys[0][0]) ? polys : [polys];
-        const key = `${name}:${f.hex || f.flight_iata || f.flight_icao || f.reg_number || f.callsign || Math.random()}`;
-        const isIn = arr.some(poly => pointInPolygon(pos, poly));
-        const wasIn = insideState.get(key) || false;
-        if (isIn && !wasIn){
-          makeBeep(180, 880, 0.25);
-          const li = document.createElement('li');
-          li.textContent = `[${new Date().toLocaleTimeString()}] ${name} ← ${f.flight_iata || f.flight_icao || f.callsign || 'Vol'}`;
-          alertsUl.prepend(li);
-          fetch(`${base}/api/alerts/log`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ zone: name, flight: { iata:f.flight_iata, icao:f.flight_icao, reg:f.reg_number, hex:f.hex }, position: pos })}).catch(()=>{});
-        }
-        insideState.set(key, isIn);
-      });
-    });
-  };
 }
