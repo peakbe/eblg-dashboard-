@@ -1,0 +1,19 @@
+{
+  "name": "eblg-dashboard",
+  "version": "1.0.0",
+  "description": "EBLG Dashboard temps r\u00e9el (AVWX + AirLabs + OSM geofence + bruit)",
+  "main": "app.js",
+  "type": "module",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "NODE_ENV=development node app.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.18.2",
+    "morgan": "^1.10.0",
+    "node-cache": "^5.1.2"
+  }
+}

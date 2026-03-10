@@ -1,0 +1,246 @@
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import morgan from 'morgan';
+import cors from 'cors';
+import axios from 'axios';
+import fs from 'fs';
+import NodeCache from 'node-cache';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const PORT = process.env.PORT || 8080;
+
+const AVWX_TOKEN = process.env.AVWX_TOKEN;
+const AIRLABS_KEY = process.env.AIRLABS_KEY;
+
+if (!AVWX_TOKEN || !AIRLABS_KEY) {
+  console.error('❌ AVWX_TOKEN et/ou AIRLABS_KEY manquant(s) dans .env');
+}
+
+app.use(morgan('dev'));
+app.use(cors());
+app.use(express.json());
+
+// --- Fichiers statiques (front) ---
+app.use(express.static(path.join(__dirname, '../public')));
+
+// --- Stores simples JSON ---
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+const noiseFile = path.join(dataDir, 'noise.json');
+const alertsFile = path.join(dataDir, 'alerts.json');
+if (!fs.existsSync(noiseFile)) fs.writeFileSync(noiseFile, JSON.stringify([]));
+if (!fs.existsSync(alertsFile)) fs.writeFileSync(alertsFile, JSON.stringify([]));
+
+const readJSON = (file) => JSON.parse(fs.readFileSync(file, 'utf-8'));
+const writeJSON = (file, obj) => fs.writeFileSync(file, JSON.stringify(obj, null, 2));
+
+// --- Cache ---
+const cache = new NodeCache({ stdTTL: 120, checkperiod: 60 });
+const cacheGet = (k) => cache.get(k);
+const cacheSet = (k, v, ttl = 120) => cache.set(k, v, ttl);
+
+// --------------------- API METAR / TAF (AVWX) ---------------------
+app.get('/api/metar', async (req, res) => {
+  const icao = (req.query.icao || 'EBLG').toUpperCase();
+  const key = `metar:${icao}`;
+  try {
+    const cached = cacheGet(key);
+    if (cached) return res.json(cached);
+    const url = `https://avwx.rest/api/metar/${icao}?format=json&token=${encodeURIComponent(AVWX_TOKEN)}`;
+    const { data } = await axios.get(url, { timeout: 8000 });
+    cacheSet(key, data, 300);
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: 'AVWX METAR error', details: e.message });
+  }
+});
+
+app.get('/api/taf', async (req, res) => {
+  const icao = (req.query.icao || 'EBLG').toUpperCase();
+  const key = `taf:${icao}`;
+  try {
+    const cached = cacheGet(key);
+    if (cached) return res.json(cached);
+    const url = `https://avwx.rest/api/taf/${icao}?format=json&token=${encodeURIComponent(AVWX_TOKEN)}`;
+    const { data } = await axios.get(url, { timeout: 8000 });
+    cacheSet(key, data, 300);
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: 'AVWX TAF error', details: e.message });
+  }
+});
+
+// --------------------- API Flights (AirLabs) ---------------------
+const AIRPORT_IATA = 'LGG';
+const EBLG = { lat: 50.637, lon: 5.443 };
+
+app.get('/api/flights', async (req, res) => {
+  try {
+    const { scope = 'all' } = req.query;
+    const key = `flights:${scope}`;
+    const cached = cacheGet(key);
+    if (cached) return res.json(cached);
+
+    const base = 'https://api.airlabs.co/v9/flights';
+    const akey = encodeURIComponent(AIRLABS_KEY);
+
+    const urls = [];
+    if (scope === 'dep' || scope === 'all') urls.push(`${base}?dep_iata=${AIRPORT_IATA}&api_key=${akey}`);
+    if (scope === 'arr' || scope === 'all') urls.push(`${base}?arr_iata=${AIRPORT_IATA}&api_key=${akey}`);
+    if (scope === 'over' || scope === 'all') urls.push(`${base}?lat=${EBLG.lat}&lng=${EBLG.lon}&distance=50&api_key=${akey}`);
+
+    const [depRes, arrRes, overRes] = await Promise.all([
+      urls[0] ? axios.get(urls[0], { timeout: 8000 }).catch(() => ({ data: { response: [] } })) : { data: { response: [] } },
+      urls[1] ? axios.get(urls[1], { timeout: 8000 }).catch(() => ({ data: { response: [] } })) : { data: { response: [] } },
+      urls[2] ? axios.get(urls[2], { timeout: 8000 }).catch(() => ({ data: { response: [] } })) : { data: { response: [] } }
+    ]);
+
+    const payload = {
+      departures: depRes?.data?.response || [],
+      arrivals:   arrRes?.data?.response || [],
+      over:       overRes?.data?.response || []
+    };
+    cacheSet(key, payload, 15);
+    res.json(payload);
+  } catch (e) {
+    res.status(500).json({ error: 'AirLabs error', details: e.message });
+  }
+});
+
+// Détail vol
+app.get('/api/flight', async (req, res) => {
+  const { flight_iata, flight_icao, hex, reg_number } = req.query;
+  if (!flight_iata && !flight_icao && !hex && !reg_number) {
+    return res.status(400).json({ error: 'Specify one: flight_iata | flight_icao | hex | reg_number' });
+  }
+  try {
+    const base = 'https://api.airlabs.co/v9/flight';
+    const akey = encodeURIComponent(AIRLABS_KEY);
+    const params = new URLSearchParams({ api_key: akey });
+    if (flight_iata) params.append('flight_iata', flight_iata);
+    if (flight_icao) params.append('flight_icao', flight_icao);
+    if (hex) params.append('hex', hex);
+    if (reg_number) params.append('reg_number', reg_number);
+
+    const { data } = await axios.get(`${base}?${params.toString()}`, { timeout: 8000 });
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: 'AirLabs flight detail error', details: e.message });
+  }
+});
+
+// --------------------- Geofences via Nominatim ---------------------
+function extractPolygonsFromGeojson(geojson){
+  // Return array of polygons, each polygon is [[lat,lon], ...]
+  const polys = [];
+  if (!geojson) return polys;
+  const toLatLon = coords => coords.map(pt => [pt[1], pt[0]]);
+  if (geojson.type === 'Polygon') {
+    // Only outer ring
+    polys.push(toLatLon(geojson.coordinates[0]));
+  } else if (geojson.type === 'MultiPolygon') {
+    for (const poly of geojson.coordinates) {
+      if (Array.isArray(poly) && poly[0]) polys.push(toLatLon(poly[0]));
+    }
+  }
+  return polys;
+}
+
+async function fetchBoundaryByName(name){
+  const key = `geofence:${name}`;
+  const cached = cacheGet(key);
+  if (cached) return cached;
+
+  const url = 'https://nominatim.openstreetmap.org/search';
+  const params = { q: name + ', Belgium', format: 'jsonv2', polygon_geojson: 1, addressdetails: 1 }; 
+  const headers = { 'User-Agent': 'EBLG-Dashboard/1.0 (contact@example.com)' };
+  const { data } = await axios.get(url, { params, headers, timeout: 15000 });
+  // Prefer administrative or village/town/municipality
+  const candidates = (data || []).filter(r => r.geojson);
+  const prefer = candidates.find(r => ['administrative','municipality','town','village'].includes(r.type)) || candidates[0];
+  if (!prefer) return null;
+
+  const polys = extractPolygonsFromGeojson(prefer.geojson);
+  // Simplify by sampling every N points
+  const simplified = polys.map(poly => poly.filter((_,i)=> i%3===0));
+  cacheSet(key, simplified, 3600); // 1h
+  return simplified;
+}
+
+app.get('/api/geofences', async (req, res) => {
+  try {
+    const names = [
+      'Saint-Georges-sur-Meuse',
+      'Verlaine',
+      'Houtain-Saint-Siméon',
+      'Wonck'
+    ];
+    const result = {};
+    for (const n of names) {
+      try { result[n] = await fetchBoundaryByName(n); }
+      catch { result[n] = null; }
+    }
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: 'Geofence error', details: e.message });
+  }
+});
+
+// --------------------- Noise API ---------------------
+app.get('/api/noise/latest', (req, res) => {
+  const all = readJSON(noiseFile);
+  const latest = all.length ? all[all.length - 1] : null;
+  res.json({ latest, count: all.length });
+});
+
+app.get('/api/noise/history', (req, res) => {
+  const { from, to, id } = req.query;
+  let data = readJSON(noiseFile);
+  if (id) data = data.filter(d => d.id === id);
+  if (from) data = data.filter(d => new Date(d.ts) >= new Date(from));
+  if (to) data = data.filter(d => new Date(d.ts) <= new Date(to));
+  res.json({ items: data.slice(-5000) });
+});
+
+app.post('/api/noise/ingest', (req, res) => {
+  const { id, value, lat, lon, meta } = req.body || {};
+  if (!id || typeof value !== 'number') {
+    return res.status(400).json({ error: 'id (string) et value (number) requis' });
+  }
+  const rec = { id, value, lat: typeof lat==='number'?lat:null, lon: typeof lon==='number'?lon:null, meta: meta||null, ts: new Date().toISOString() };
+  const all = readJSON(noiseFile);
+  all.push(rec);
+  writeJSON(noiseFile, all);
+  res.json({ ok: true, stored: rec });
+});
+
+// --------------------- Alerts Log ---------------------
+app.get('/api/alerts', (req, res) => {
+  const items = readJSON(alertsFile);
+  res.json({ items });
+});
+
+app.post('/api/alerts/log', (req, res) => {
+  const { zone, flight, position } = req.body || {};
+  if (!zone || !flight) return res.status(400).json({ error: 'zone et flight requis' });
+  const entry = { zone, flight, position: position || null, ts: new Date().toISOString() };
+  const items = readJSON(alertsFile);
+  items.push(entry);
+  writeJSON(alertsFile, items);
+  res.json({ ok: true });
+});
+
+// --------------------- Start ---------------------
+app.listen(PORT, () => {
+  console.log(`✅ EBLG dashboard server on http://localhost:${PORT}`);
+  console.log('   Static front: / (public)');
+  console.log('   APIs: /api/metar /api/taf /api/flights /api/flight /api/geofences /api/noise/* /api/alerts*');
+});
