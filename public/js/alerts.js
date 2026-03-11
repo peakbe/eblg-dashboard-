@@ -18,7 +18,8 @@ if (!window.__ALERTS_INIT__) {
       const ctx=new(window.AudioContext||window.webkitAudioContext)();
       const o=ctx.createOscillator(); const g=ctx.createGain();
       o.connect(g); g.connect(ctx.destination);
-     .stop();ctx.close();},120);
+     o.stop();
+ctx.close();},120);
     }catch{}
   }
 
