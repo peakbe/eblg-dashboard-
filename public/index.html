@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EBLG – Dashboard temps réel</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <h1>EBLG – Liège</h1>
+
+    <div class="card" id="weather">
+      <h2>Météo (METAR/TAF)</h2>
+      <div class="loading">Chargement...</div>
+    </div>
+
+    <div class="card" id="aircrafts">
+      <h2>Trafic AirLabs</h2>
+      <div class="legend">
+        <span><i class="dot dot-arr"></i>Départs (orange)</span>
+        <span><i class="dot dot-arrv"></i>Arrivées (bleu)</span>
+        <span><i class="dot dot-ovf"></i>Survols (violet)</span>
+        <span><i class="dot dot-son"></i>Sonomètres (bleu foncé)</span>
+      </div>
+      <div class="filter">
+        <label for="altRange">Altitude max: <span id="altValue">4000</span> ft</label>
+        <input id="altRange" type="range" min="0" max="20000" step="500" value="4000" />
+      </div>
+      <div class="lists">
+        <div>
+          <h3>Départs</h3>
+          <ul id="list-deps"></ul>
+        </div>
+        <div>
+          <h3>Arrivées</h3>
+          <ul id="list-arrs"></ul>
+        </div>
+        <div>
+          <h3>Survols (≈50 km)</h3>
+          <ul id="list-over"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="noise">
+      <h2>Sonomètres</h2>
+      <canvas id="noiseChart" height="140"></canvas>
+      <ul id="noise-list"></ul>
+    </div>
+
+    <div class="card" id="alerts">
+      <h2>Alertes zones</h2>
+      <ul id="alerts-list"></ul>
+    </div>
+
+    <footer>
+      <button id="toggleTheme" title="Basculer le thème">🌓</button>
+    </footer>
+  </aside>
+
+  <div id="map"></div>
+
+  <script defer src="js/config.js"></script>
+  <script defer src="js/routes.js"></script>
+  <script defer src="js/icons.js"></script>
+  <script defer src="js/alerts.js"></script>
+  <script defer src="js/noise.js"></script>
+  <script defer src="js/main.js"></script>
+</body>
+</html>
