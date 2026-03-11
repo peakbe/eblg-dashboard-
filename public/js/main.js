@@ -1,3 +1,56 @@
+async function loadMetarTaf() {
+  const panel = document.getElementById('weather');
+  if (!panel) return;
+
+  const safe = (v, fallback = '—') => (v === null || v === undefined ? fallback : v);
+
+  try {
+    const base = CONFIG.apiBase || '';
+    const [metarRes, tafRes] = await Promise.all([
+      fetch(`${base}/api/metar?icao=${CONFIG.airport.code}`),
+      fetch(`${base}/api/taf?icao=${CONFIG.airport.code}`)
+    ]);
+
+    if (!metarRes.ok) throw new Error(`METAR HTTP ${metarRes.status}`);
+    if (!tafRes.ok)   throw new Error(`TAF HTTP ${tafRes.status}`);
+
+    const metar = await metarRes.json();
+    const taf   = await tafRes.json();
+
+    const raw      = safe(metar?.raw);
+    const temp     = safe(metar?.temperature?.value);
+    const windKt   = safe(metar?.wind_speed?.value);
+    const vis      = safe(metar?.visibility?.value ?? metar?.visibility?.repr);
+    const qnhHpa   = safe(metar?.altimeter?.value);
+
+    panel.innerHTML = `
+      <h2>Météo (METAR/TAF)</h2>
+
+      <div><b>METAR (${CONFIG.airport.code})</b></div>
+      <div class="metar-block">
+        ${raw}
+      </div>
+
+      <div class="metar-info">
+        Temp: <b>${temp}°C</b> · 
+        Vent: <b>${windKt} kt</b> · 
+        Visibilité: <b>${vis}</b> · 
+        QNH: <b>${qnhHpa} hPa</b>
+      </div>
+
+      <div style="margin-top:10px;"><b>TAF (${CONFIG.airport.code})</b></div>
+      <div class="metar-block">
+        ${safe(taf?.raw)}
+      </div>
+    `;
+  } catch (e) {
+    panel.innerHTML = `
+      <h2>Météo (METAR/TAF)</h2>
+      <p class="loading" style="color:#ffb4b4">Erreur de chargement : ${e.message}</p>
+      <p style="font-size:12px;color:#9fb0c1">Vérifie AVWX_TOKEN dans Render.</p>
+    `;
+  }
+}
 if (!window.__APP_INITIALIZED__) {
   window.__APP_INITIALIZED__ = true;
   document.addEventListener('DOMContentLoaded', async () => {
