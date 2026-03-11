@@ -1,9 +1,6 @@
-// force render cache refresh
-
 /* -------------------------------------------------------
    METAR / TAF
 ------------------------------------------------------- */
-
 async function loadMetarTaf() {
   const panel = document.getElementById('weather');
   if (!panel) return;
@@ -46,9 +43,10 @@ async function loadMetarTaf() {
       <div class="metar-block">${safe(taf?.raw)}</div>
     `;
   } catch (e) {
+    const msg = (e && e.message) ? e.message : 'Erreur inconnue';
     panel.innerHTML = `
       <h2>Météo (METAR/TAF)</h2>
-      <p class="loading" style="color:#ffb4b4">Erreur : ${e.message}</p>
+      <p class="loading" style="color:#ffb4b4">Erreur : ${msg}</p>
     `;
   }
 }
@@ -56,7 +54,6 @@ async function loadMetarTaf() {
 /* -------------------------------------------------------
    APP INITIALIZATION
 ------------------------------------------------------- */
-
 if (!window.__APP_INITIALIZED__) {
   window.__APP_INITIALIZED__ = true;
 
@@ -65,7 +62,7 @@ if (!window.__APP_INITIALIZED__) {
     /* --- Init Leaflet Map --- */
     const mapContainer = document.getElementById('map');
     if (!mapContainer) return;
-    if (mapContainer._leaflet_id) return;
+    if (mapContainer._leaflet_id) return; // évite double init
 
     const map = L.map('map', { zoomControl: true })
       .setView([CONFIG.airport.lat, CONFIG.airport.lon], 12);
@@ -79,20 +76,23 @@ if (!window.__APP_INITIALIZED__) {
       .addTo(map)
       .bindPopup(`<b>${CONFIG.airport.name}</b><br>${CONFIG.airport.code}`);
 
-    if (typeof window.drawCorridors === 'function')
+    if (typeof window.drawCorridors === 'function') {
       window.drawCorridors(map);
+    }
 
-    /* --- LOAD METAR + TAF --- */
+    /* --- METAR + TAF --- */
     await loadMetarTaf();
 
-    /* --- Geofences --- */
+    /* --- Geofences + watcher alertes --- */
     const geofences = await (window.loadGeofences ? window.loadGeofences() : Promise.resolve({}));
     const watcher = window.setupGeofenceWatcher
       ? window.setupGeofenceWatcher(map, geofences)
       : () => {};
 
-    /* --- Noise --- */
-    await (window.renderNoise ? window.renderNoise() : Promise.resolve());
+    /* --- Sonomètres (graphe + liste) --- */
+    if (window.renderNoise) {
+      await window.renderNoise();
+    }
 
     /* --- Altitude slider --- */
     const altRange = document.getElementById('altRange');
@@ -103,18 +103,23 @@ if (!window.__APP_INITIALIZED__) {
       });
     }
 
-    /* --- Flights Refresh --- */
+    /* --- Trafic AirLabs --- */
     async function refreshFlights() {
       try {
         const base = CONFIG.apiBase || '';
         const data = await fetch(`${base}/api/flights?scope=all`).then(r => r.json());
-        watcher(data);
-      } catch (e) { /* ignore */ }
+        watcher(data); // geofencing des vols (entrée en zone => alerte)
+      } catch (e) {
+        // silencieux (évite de casser le cycle si API momentanément indispo)
+      }
     }
 
-    refreshFlights();
-    setInterval(refreshFlights, 15000);
-    setInterval(() => window.renderNoise && window.renderNoise(), 60000);
+    // Premier chargement
+    await refreshFlights();
+
+    // Rafraîchissements périodiques
+    setInterval(refreshFlights, 15000);     // trafic (15 s)
+    setInterval(loadMetarTaf, 5 * 60 * 1000); // METAR/TAF (5 min)
+    setInterval(() => window.renderNoise && window.renderNoise(), 60 * 1000); // bruit (1 min)
   });
 }
-``
