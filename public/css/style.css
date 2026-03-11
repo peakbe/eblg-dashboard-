@@ -23,3 +23,9 @@ footer{ display:flex; justify-content:flex-end; padding:8px;}
 #toggleTheme{ cursor:pointer; background: var(--bg-soft); color: var(--text); border:1px solid var(--border); border-radius:10px; padding:6px 10px; }
 .leaflet-popup-content-wrapper{ background:#0f1524; color:var(--text); border:1px solid var(--border);} 
 .leaflet-popup-tip{ background:#0f1524; }
+.metar-block{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background:#0b1120; border:1px solid #22304a; padding:6px; border-radius:8px;
+  margin:6px 0 8px 0; color:#dce6ff;
+}
+.metar-info{ font-size:13px; color:#c9d7ee; }
