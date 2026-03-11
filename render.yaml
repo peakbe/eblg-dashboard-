@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: eblg-dashboard
+    runtime: docker
+    dockerfilePath: server/Dockerfile
+    envVars:
+      - key: AVWX_TOKEN
+        sync: false
+      - key: AIRLABS_KEY
+        sync: false
+      - key: PORT
+        value: "10000"
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - server/**
+        - public/**
+        - README.md
+        - render.yaml
+        - server/Dockerfile
