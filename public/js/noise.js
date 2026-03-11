@@ -1,36 +1,39 @@
-let noiseChart;
+if (!window.__NOISE_INIT__) {
+  window.__NOISE_INIT__ = true;
 
-async function renderNoise(){
-  const base = CONFIG.apiBase || '';
-  const latest = await fetch(`${base}/api/noise/latest`).then(r=>r.json()).catch(()=>({latest:null}));
-  const history = await fetch(`${base}/api/noise/history`).then(r=>r.json()).catch(()=>({items:[]}));
+  let noiseChart;
 
-  const list = document.getElementById('noise-list');
-  list.innerHTML = '';
+  async function renderNoise(){
+    const base = CONFIG.apiBase || '';
+    const latest = await fetch(`${base}/api/noise/latest`).then(r=>r.json()).catch(()=>null);
+    const history = await fetch(`${base}/api/noise/history`).then(r=>r.json()).catch(()=>({items:[]}));
 
-  if (latest?.latest){
-    const li = document.createElement('li');
-    li.textContent = `Dernier: ${latest.latest.id} – ${latest.latest.value} dB (${new Date(latest.latest.ts).toLocaleString()})`;
-    list.appendChild(li);
-  } else {
-    const li = document.createElement('li');
-    li.textContent = 'Aucune mesure encore.';
-    list.appendChild(li);
+    const list=document.getElementById('noise-list');
+    if(!list) return;
+    list.innerHTML='';
+
+    if(latest?.id){
+      const li=document.createElement('li');
+      li.textContent=`Dernier: ${latest.id} – ${latest.value} dB`;
+      list.appendChild(li);
+    }
+
+    const byTime=history.items.slice(-200);
+    const labels=byTime.map(d=>new Date(d.ts).toLocaleTimeString());
+    const values=byTime.map(d=>d.value);
+
+    const canvas=document.getElementById('noiseChart');
+    if(!canvas) return;
+
+    const ctx=canvas.getContext('2d');
+    if(noiseChart) noiseChart.destroy();
+
+    noiseChart=new Chart(ctx,{
+      type:'line',
+      data:{labels,datasets:[{label:'dB(A)',data:values,borderColor:'#4cc3ff', backgroundColor:'rgba(76,195,255,0.15)', tension:0.25, pointRadius:0}]},
+      options:{responsive:true}
+    });
   }
 
-  const byTime = history.items.slice(-200);
-  const labels = byTime.map(d => new Date(d.ts).toLocaleTimeString());
-  const values = byTime.map(d => d.value);
-
-  const ctx = document.getElementById('noiseChart').getContext('2d');
-  if (noiseChart) noiseChart.destroy();
-  noiseChart = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets: [{ label: 'dB(A)', data: values, borderColor:'#4cc3ff', backgroundColor:'rgba(76,195,255,0.15)', tension:0.25, pointRadius:0 }] },
-    options: {
-      responsive:true,
-      plugins:{ legend:{ labels:{ color:'#cfe2ff' } } },
-      scales:{ x:{ ticks:{ color:'#a9b6cf'} , grid:{ color:'rgba(255,255,255,0.06)'} }, y:{ ticks:{ color:'#a9b6cf'} , grid:{ color:'rgba(255,255,255,0.06)'} } }
-    }
-  });
+  window.renderNoise = renderNoise;
 }
