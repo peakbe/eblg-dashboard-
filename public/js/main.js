@@ -59,6 +59,7 @@ if (!window.__APP_INITIALIZED__) {
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{ attribution:'&copy; OpenStreetMap, &copy; CARTO'}).addTo(map);
     L.marker([CONFIG.airport.lat,CONFIG.airport.lon]).addTo(map).bindPopup(`<b>${CONFIG.airport.name}</b><br>${CONFIG.airport.code}`);
     if (typeof window.drawCorridors==='function') window.drawCorridors(map);
+    await loadMetarTaf();
     const geofences = await (window.loadGeofences ? window.loadGeofences() : Promise.resolve({}));
     const watcher = window.setupGeofenceWatcher ? window.setupGeofenceWatcher(map, geofences) : ()=>{};
     await (window.renderNoise ? window.renderNoise() : Promise.resolve());
