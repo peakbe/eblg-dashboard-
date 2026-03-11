@@ -1,6 +1,4 @@
-/* -------------------------------------------------------
-   METAR / TAF
-------------------------------------------------------- */
+// ---- METAR / TAF ----
 async function loadMetarTaf() {
   const panel = document.getElementById('weather');
   if (!panel) return;
