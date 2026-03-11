@@ -1,34 +1,21 @@
-// Configuration côté client
-const CONFIG = {
-  apiBase: '', // même origin Render
-  airport: { code: 'EBLG', iata: 'LGG', name: 'Liège Airport', lat: 50.637, lon: 5.443 },
+// icons.js
+function aircraftDivIcon(color, heading=0){
+  const svg = `
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+       xmlns="http://www.w3.org/2000/svg"
+       style="transform: rotate(${heading}deg); transform-origin: 50% 50%;">
+    <path d="M12 2l2.5 6.5H21l-6 5 2.3 7.5L12 16l-5.3 5 2.3-7.5-6-5h6.5L12 2z"
+      fill="${color}" stroke="white" stroke-width="0.7" />
+  </svg>`;
+  return L.divIcon({ className: "aircraft-icon", html: svg, iconSize: [26,26], iconAnchor: [13,13], popupAnchor: [0,-12] });
+}
 
-  // Couloirs approximatifs (longueur km)
-  corridors: {
-    runway_center: { lat: 50.637, lon: 5.443 },
-    dep_bearing_deg: 223, // RWY 22 (approx)
-    arr_bearing_deg: 43,  // RWY 04 (approx)
-    length_km: 30
-  },
-
-  // Sonomètres
-  noiseMonitors: [
-    { id:"F017", name:"Wonck",           lat:50.764883, lon:5.630606 },
-    { id:"F001", name:"Houtain",         lat:50.738044, lon:5.608833 },
-    { id:"F014", name:"Juprelle",        lat:50.718894, lon:5.573164 },
-    { id:"F015", name:"Juprelle",        lat:50.688839, lon:5.526216 },
-    { id:"F005", name:"Haneffe",         lat:50.639331, lon:5.323519 },
-    { id:"F003", name:"Saint-Georges",   lat:50.601167, lon:5.381400 },
-    { id:"F011", name:"Saint-Georges",   lat:50.601142, lon:5.356006 },
-    { id:"F008", name:"Saint-Georges",   lat:50.594878, lon:5.358950 },
-    { id:"F002", name:"Saint-Georges",   lat:50.588414, lon:5.370522 },
-    { id:"F007", name:"Saint-Georges",   lat:50.590756, lon:5.344114 },
-    { id:"F009", name:"Stockay",         lat:50.580831, lon:5.355417 },
-    { id:"F004", name:"Verlaine",        lat:50.605414, lon:5.321406 },
-    { id:"F010", name:"Verlaine",        lat:50.599392, lon:5.313492 },
-    { id:"F013", name:"Verlaine",        lat:50.586914, lon:5.308678 },
-    { id:"F016", name:"Verlaine",        lat:50.619617, lon:5.295344 },
-    { id:"F006", name:"Seraing",         lat:50.609594, lon:5.271403 },
-    { id:"F012", name:"Aineffe",         lat:50.621917, lon:5.254747 }
-  ]
-};
+function noiseDivIcon(){
+  const svg = `
+  <svg width="24" height="24" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="8" fill="#001a4d" stroke="#bcd1ff" stroke-width="1.2"/>
+    <rect x="11" y="7" width="2" height="10" rx="1" fill="#bcd1ff"/>
+    <circle cx="12" cy="12" r="2" fill="#bcd1ff"/>
+  </svg>`;
+  return L.divIcon({ className: "noise-icon", html: svg, iconSize: [24,24], iconAnchor: [12,12] });
+}
