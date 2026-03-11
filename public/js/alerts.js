@@ -1,36 +1,72 @@
-let noiseChart;
+if (!window.__ALERTS_INIT__) {
+  window.__ALERTS_INIT__ = true;
 
-async function renderNoise(){
-  const base = CONFIG.apiBase || '';
-  const latest = await fetch(`${base}/api/noise/latest`).then(r=>r.json()).catch(()=>({latest:null}));
-  const history = await fetch(`${base}/api/noise/history`).then(r=>r.json()).catch(()=>({items:[]}));
-
-  const list = document.getElementById('noise-list');
-  list.innerHTML = '';
-
-  if (latest?.latest){
-    const li = document.createElement('li');
-    li.textContent = `Dernier: ${latest.latest.id} – ${latest.latest.value} dB (${new Date(latest.latest.ts).toLocaleString()})`;
-    list.appendChild(li);
-  } else {
-    const li = document.createElement('li');
-    li.textContent = 'Aucune mesure encore.';
-    list.appendChild(li);
+  function pointInPolygon(point, polygon){
+    const [x, y] = [point[1], point[0]];
+    let inside = false;
+    for (let i=0,j=polygon.length-1;i<polygon.length;j=i++){
+      const xi=polygon[i][1], yi=polygon[i][0];
+      const xj=polygon[j][1], yj=polygon[j][0];
+      const intersect=((yi>y)!=(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi);
+      if(intersect) inside=!inside;
+    }
+    return inside;
   }
 
-  const byTime = history.items.slice(-200);
-  const labels = byTime.map(d => new Date(d.ts).toLocaleTimeString());
-  const values = byTime.map(d => d.value);
+  function makeBeep(){
+    try{
+      const ctx=new(window.AudioContext||window.webkitAudioContext)();
+      const o=ctx.createOscillator(); const g=ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+     .stop();ctx.close();},120);
+    }catch{}
+  }
 
-  const ctx = document.getElementById('noiseChart').getContext('2d');
-  if (noiseChart) noiseChart.destroy();
-  noiseChart = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets: [{ label: 'dB(A)', data: values, borderColor:'#4cc3ff', backgroundColor:'rgba(76,195,255,0.15)', tension:0.25, pointRadius:0 }] },
-    options: {
-      responsive:true,
-      plugins:{ legend:{ labels:{ color:'#cfe2ff' } } },
-      scales:{ x:{ ticks:{ color:'#a9b6cf'} , grid:{ color:'rgba(255,255,255,0.06)'} }, y:{ ticks:{ color:'#a9b6cf'} , grid:{ color:'rgba(255,255,255,0.06)'} } }
+  async function loadGeofences(){
+    const base = CONFIG.apiBase || '';
+    const r=await fetch(`${base}/api/geofences`);
+    return await r.json();
+  }
+
+  function setupGeofenceWatcher(map, polygonsByName){
+    const alertsUl=document.getElementById('alerts-list');
+    const insideState=new Map();
+
+    return function(allFlights){
+      const {departures=[],arrivals=[],over=[]}=allFlights;
+      const list=[...departures,...arrivals,...over];
+      const base=CONFIG.apiBase||'';
+
+      list.forEach(f=>{
+        if(!f.lat||!f.lng) return;
+        const pos=[f.lat,f.lng];
+
+        Object.entries(polygonsByName).forEach(([name,polys])=>{
+          if(!polys) return;
+          const arr=Array.isArray(polys[0][0])?polys:[polys];
+          const key=name+':' +(f.hex||f.flight_iata||f.flight_icao||f.reg_number||f.callsign);
+
+          const isIn=arr.some(poly=>pointInPolygon(pos,poly));
+          const wasIn=insideState.get(key)||false;
+
+          if(isIn && !wasIn){
+            makeBeep();
+            const li=document.createElement('li');
+            li.textContent=`[${new Date().toLocaleTimeString()}] ${name} ← ${f.flight_iata||f.flight_icao||f.callsign}`;
+            alertsUl.prepend(li);
+
+            fetch(`${base}/api/alerts/log`,{
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({zone:name,flight:f,position:pos})
+            });
+          }
+          insideState.set(key,isIn);
+        });
+      });
     }
-  });
+  }
+
+  window.loadGeofences = loadGeofences;
+  window.setupGeofenceWatcher = setupGeofenceWatcher;
 }
