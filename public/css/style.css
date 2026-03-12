@@ -1,31 +1,81 @@
- :root{ --bg:#0f1420; --bg-soft:#171e2c; --card:#0f1524cc; --text:#e6edf7; --muted:#9fb0c1; --accent:#4cc3ff; --orange:#ff8c3a; --blue:#3aa3ff; --violet:#a36bff; --sonic:#001a4d; --border:#22304a; }
-*{box-sizing:border-box}
-html,body{height:100%; margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: radial-gradient(1200px 800px at 20% 10%, #151c2b 0%, var(--bg) 60%); color:var(--text);} 
+:root{
+  /* Thème clair */
+  --bg:#f6f8fb;
+  --panel:#ffffff;
+  --text:#0f172a;
+  --muted:#5b6b7c;
+  --border:#e2e8f0;
+  --accent:#3a7bd5;
+  --good:#2ecc71; --warn:#f1c40f; --mid:#e67e22; --bad:#e74c3c;
+
+  /* Carte / traces */
+  --runway-arr:#3aa3ff;
+  --runway-dep:#ff8c3a;
+}
+
+/* Reset généraux */
+*{ box-sizing:border-box; }
+html, body{ height:100%; margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); }
+
+/* Layout */
 #map{ position:fixed; inset:0 0 0 380px; z-index:1; }
-.sidebar{ position:fixed; left:0; top:0; bottom:0; width:380px; padding:16px 14px; background: linear-gradient(180deg, #0e1422 0%, #0b101b 100%); border-right:1px solid var(--border); overflow:auto; z-index:2;}
-.sidebar h1{ margin:6px 8px 16px 8px; font-size:20px; font-weight:700;}
-.card{ background:var(--card); backdrop-filter: blur(8px); border:1px solid var(--border); border-radius:12px; padding:12px; margin:10px 8px 14px 8px; box-shadow:0 10px 30px rgba(0,0,0,0.25);} 
-.card h2{ margin:0 0 8px 0; font-size:16px;}
-.card h3{ margin:10px 0 6px 0; font-size:14px; color:var(--muted); font-weight:600;}
+.sidebar{ position:fixed; left:0; top:0; bottom:0; width:380px; padding:16px 14px; background: #f8fafc; border-right:1px solid var(--border); overflow:auto; z-index:2; }
+.sidebar h1{ margin:6px 8px 16px 8px; font-size:20px; font-weight:700; }
+
+/* Cards */
+.card{ background: var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px; margin:10px 8px 14px 8px; box-shadow:0 6px 18px rgba(15,23,42,0.05); }
+.card h2{ margin:0 0 8px 0; font-size:16px; }
+.card h3{ margin:10px 0 6px 0; font-size:14px; color:var(--muted); font-weight:600; }
 .loading{ color:var(--muted); font-size:13px; }
-.legend{ display:flex; flex-wrap:wrap; gap:10px; margin:6px 0 8px 0; font-size:12px; color:var(--muted);} 
-.legend .dot{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px;}
-.dot-arr{ background: var(--orange); }
-.dot-arrv{ background: var(--blue); }
-.dot-ovf{ background: var(--violet); }
-.dot-son{ background: var(--sonic); }
-.filter{ margin:8px 0; font-size:12px; color:var(--muted);} 
-.filter input[type="range"]{ width:100%; }
-.lists{ display:grid; grid-template-columns: 1fr; gap:6px;}
-.lists ul{ list-style:none; margin:0; padding-left:14px; font-size:13px; line-height:1.4;}
-.lists li{ margin:2px 0; color:#d3dbeb;}
-footer{ display:flex; justify-content:flex-end; padding:8px;}
-#toggleTheme{ cursor:pointer; background: var(--bg-soft); color: var(--text); border:1px solid var(--border); border-radius:10px; padding:6px 10px; }
-.leaflet-popup-content-wrapper{ background:#0f1524; color:var(--text); border:1px solid var(--border);} 
-.leaflet-popup-tip{ background:#0f1524; }
+
+/* Météo */
 .metar-block{
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  background:#0b1120; border:1px solid #22304a; padding:6px; border-radius:8px;
-  margin:6px 0 8px 0; color:#dce6ff;
+  background:#eef2ff; border:1px solid #dbe4ff; padding:6px; border-radius:8px; margin:6px 0 8px 0; color:#243b6b;
 }
-.metar-info{ font-size:13px; color:#c9d7ee; }
+.metar-info{ font-size:13px; color:#415a77; }
+
+/* Légendes */
+.legend{ display:flex; flex-wrap:wrap; gap:10px; margin:6px 0 8px 0; font-size:12px; color:var(--muted); }
+.legend .dot{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
+.dot-arr{ background: var(--runway-dep); }
+.dot-arrv{ background: var(--runway-arr); }
+.dot-ovf{ background: #a36bff; }
+.dot-son{ background: #2b3a67; }
+
+/* Filtres */
+.filter{ margin:8px 0; font-size:12px; color:var(--muted); }
+.filter input[type="range"]{ width:100%; }
+
+/* Listes */
+.lists{ display:grid; grid-template-columns: 1fr; gap:6px; }
+.lists ul{ list-style:none; margin:0; padding-left:14px; font-size:13px; line-height:1.4; }
+.lists li{ margin:4px 0; color:#1e293b; }
+
+/* Noise (individuel) */
+.noise-item{ padding:6px 4px; border-bottom:1px dashed var(--border); }
+.noise-row{ display:grid; grid-template-columns: 68px 1fr 100px 1fr 120px; align-items:center; gap:6px; }
+.noise-id{ font-weight:700; color:#1e293b; }
+.noise-name{ color:#334155; }
+.noise-instant{ color:#0f172a; }
+.noise-stats .tag{ font-size:12px; color:#475569; margin-right:8px; }
+.noise-heat{ display:flex; align-items:center; gap:6px; justify-content:flex-end; }
+.heat-badge{ display:inline-block; width:10px; height:10px; border-radius:3px; box-shadow: 0 0 0 1px rgba(0,0,0,0.05) inset; }
+.heat-label{ font-size:12px; color:#334155; }
+
+/* Spinner */
+#spinner{
+  position:fixed; top:50%; left:50%; width:60px; height:60px; margin:-30px 0 0 -30px;
+  border:6px solid #e2e8f0; border-top-color: var(--accent); border-radius:50%;
+  animation: spin 0.8s linear infinite; z-index:9999; background:transparent;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.hidden{ display:none !important; }
+
+/* Marqueurs sonomètres */
+.noise-pin-wrap{ filter: drop-shadow(0 2px 8px rgba(15,23,42,0.2)); }
+.noise-pin{
+  width:28px; height:28px; background:#1f2937; color:#e5e7eb; border-radius:50%;
+  display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;
+  border:2px solid #e2e8f0;
+}
