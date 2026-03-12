@@ -96,6 +96,23 @@ if (trafCard) {
     }
 }
 
+    // Distance orthodromique (Haversine) en km
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function isWithinRadius(f, centerLat, centerLon, radiusKm = 50) {
+  if (!f || typeof f.lat !== 'number' || typeof f.lng !== 'number') return false;
+  const d = haversineKm(centerLat, centerLon, f.lat, f.lng);
+  return d <= radiusKm;
+}
     // Bouton reset carte (dans le footer si présent)
     const footBtns=document.querySelector('footer');
     if (footBtns){
@@ -123,16 +140,26 @@ if (trafCard) {
     const layerArrs=L.layerGroup().addTo(map);
     const layerOver=L.layerGroup().addTo(map);
 
-    function filterFlights(data){
-      const sDep=document.getElementById('flt-dep')?.checked ?? true;
-      const sArr=document.getElementById('flt-arr')?.checked ?? true;
-      const sOvr=document.getElementById('flt-over')?.checked ?? true;
-      return {
-        departures: sDep? (data.departures||[]):[],
-        arrivals:   sArr? (data.arrivals||[]):[],
-        over:       sOvr? (data.over||[]):[]
-      };
-    }
+   function filterFlights(data) {
+  const sDep  = document.getElementById('flt-dep')?.checked ?? true;
+  const sArr  = document.getElementById('flt-arr')?.checked ?? true;
+  const sOvr  = document.getElementById('flt-over')?.checked ?? false; // ← si tu veux masquer les survols par défaut
+
+  // 1) Ne garder que DEPARTS / ARRIVEES (on garde la logique des cases)
+  let dep = sDep ? (data.departures || []) : [];
+  let arr = sArr ? (data.arrivals   || []) : [];
+  let over = [];
+  
+  // 2) Filtrer par rayon 50km autour d’EBLG (uniquement dep/arr)
+  const { lat: C_LAT, lon: C_LON } = CONFIG.airport;
+  dep = dep.filter(f => isWithinRadius(f, C_LAT, C_LON, 50));
+  arr = arr.filter(f => isWithinRadius(f, C_LAT, C_LON, 50));
+
+  // (optionnel) Si tu veux aussi filtrer les survols à 50km :
+  // over = over.filter(f => isWithinRadius(f, C_LAT, C_LON, 50));
+
+  return { departures: dep, arrivals: arr, over };
+}
 
     function drawFlights(data){
       layerDeps.clearLayers(); layerArrs.clearLayers(); layerOver.clearLayers();
