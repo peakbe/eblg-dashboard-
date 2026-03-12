@@ -72,25 +72,64 @@ app.get('/api/taf', async (req, res) => {
 /* --- Flights (AirLabs) --- */
 const AIRPORT_IATA = 'LGG';
 
+// Utilitaires back-end
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function withinRadius(f, cLat, cLon, radiusKm = 50) {
+  if (!f) return false;
+  // AirLabs renvoie `lat`/`lng`, mais on garde des fallback robustes
+  const lat = (typeof f.lat === 'number') ? f.lat :
+              (typeof f.latitude === 'number') ? f.latitude :
+              (f.geography?.lat ?? f.position?.lat);
+  const lon = (typeof f.lng === 'number') ? f.lng :
+              (typeof f.lon === 'number') ? f.lon :
+              (f.geography?.lng ?? f.position?.lon);
+
+  if (typeof lat !== 'number' || typeof lon !== 'number') return false;
+  return haversineKm(cLat, cLon, lat, lon) <= radiusKm;
+}
+
 app.get('/api/flights', async (req, res) => {
   try {
     const key = encodeURIComponent(AIRLABS_KEY || '');
-
     const headers = {
       "User-Agent": "EBLG-Dashboard/1.0 (+https://eblg-dashboard)",
       "Accept-Encoding": "gzip"
     };
-
     const base = "https://airlabs.co/api/v9/flights";
 
-    const dep  = await axios.get(`${base}?dep_iata=${AIRPORT_IATA}&api_key=${key}`,  { headers, timeout: 10000 });
-    const arr  = await axios.get(`${base}?arr_iata=${AIRPORT_IATA}&api_key=${key}`,  { headers, timeout: 10000 });
-    const over = await axios.get(`${base}?lat=50.637&lng=5.443&distance=50&api_key=${key}`, { headers, timeout: 10000 });
+    // 1) Appels AirLabs (départs, arrivées, survol rayon 50)
+    const [dep, arr, over] = await Promise.all([
+      axios.get(`${base}?dep_iata=${AIRPORT_IATA}&api_key=${key}`,  { headers, timeout: 10000 }),
+      axios.get(`${base}?arr_iata=${AIRPORT_IATA}&api_key=${key}`,  { headers, timeout: 10000 }),
+      axios.get(`${base}?lat=50.637&lng=5.443&distance=50&api_key=${key}`, { headers, timeout: 10000 })
+    ]);
 
+    // 2) Filtrage serveur : seulement les vols dans 50 km autour d’EBLG
+    const C_LAT = 50.637;
+    const C_LON = 5.443;
+    const radiusKm = 50;
+
+    const deps50 = (dep.data?.response || []).filter(f => withinRadius(f, C_LAT, C_LON, radiusKm));
+    const arrs50 = (arr.data?.response || []).filter(f => withinRadius(f, C_LAT, C_LON, radiusKm));
+
+    // Survols : déjà fournis par AirLabs via lat/lng/distance=50 (on peut renvoyer tels quels)
+    const ovs50  = (over.data?.response || []);
+
+    // 3) Réponse normalisée
     res.json({
-      departures: dep.data?.response || [],
-      arrivals:   arr.data?.response || [],
-      over:       over.data?.response || []
+      departures: deps50,
+      arrivals:   arrs50,
+      over:       ovs50
     });
   } catch (e) {
     res.status(500).json({
@@ -99,6 +138,7 @@ app.get('/api/flights', async (req, res) => {
     });
   }
 });
+
 
 /* ------------------- GEOFENCES (Nominatim) ------------------- */
 function extractPolygonsFromGeojson(geojson) {
