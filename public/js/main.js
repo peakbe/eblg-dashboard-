@@ -80,15 +80,21 @@ if (!window.__APP_INITIALIZED__) {
       L.marker([m.lat,m.lon],{icon}).addTo(layerNoise).bindPopup(`<b>${m.id}</b><br>${m.name}`);
     });
 
-    // Filtres trafic (créés dynamiquement dans la carte Trafic)
-    const trafCard=document.getElementById('aircrafts');
-    if (trafCard){
-      const filters=document.createElement('div'); filters.id='flight-filters'; filters.innerHTML=
-        `<label><input type="checkbox" id="flt-dep" checked> Départs</label>
-         <label><input type="checkbox" id="flt-arr" checked> Arrivées</label>
-         <label><input type="checkbox" id="flt-over" checked> Survols</label>`;
-      trafCard.insertBefore(filters, trafCard.querySelector('.lists'));
+   // Filtres trafic (Départs / Arrivées / Survols)
+const trafCard = document.getElementById('aircrafts');
+if (trafCard) {
+    const h2 = trafCard.querySelector("h2");
+    if (h2) {
+        const filters = document.createElement("div");
+        filters.id = "flight-filters";
+        filters.innerHTML = `
+            <label><input type="checkbox" id="flt-dep" checked> Départs</label>
+            <label><input type="checkbox" id="flt-arr" checked> Arrivées</label>
+            <label><input type="checkbox" id="flt-over" checked> Survols</label>
+        `;
+        h2.insertAdjacentElement("afterend", filters);
     }
+}
 
     // Bouton reset carte (dans le footer si présent)
     const footBtns=document.querySelector('footer');
