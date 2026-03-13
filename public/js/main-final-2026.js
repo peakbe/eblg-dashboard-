@@ -201,8 +201,8 @@ if (!window.__APP_INITIALIZED__) {
     document.body.appendChild(spinner);
 
     /* ----------------- CARTE LEAFLET (Esri light-gray) -------------- */
-    const map = L.map("map", { zoomControl: true })
-      .setView([CONFIG.airport.lat, CONFIG.airport.lon], 12);
+    window.map = L.map("map", { zoomControl: true })
+  .setView([CONFIG.airport.lat, CONFIG.airport.lon], 12);
 
     L.tileLayer(CONFIG.mapTiles.esriLightGray.url, {
       attribution: CONFIG.mapTiles.esriLightGray.attribution
