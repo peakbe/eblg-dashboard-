@@ -316,11 +316,17 @@ if (!window.__APP_INITIALIZED__) {
     window.loadMetarTaf = loadMetarTaf;
 
     /* ------------------- GEOFENCES ------------------------------------ */
-    const geof = (window.loadGeofences ? await window.loadGeofences() : {});
-    const watcher = (window.setupGeofenceWatcher
-      ? window.setupGeofenceWatcher(map, geof)
-      : () => {}
-    );
+  // Charger les geofences normalement
+const geof = await loadGeofences();
+
+// Premier appel (peut arriver trop tôt)
+setupGeofenceWatcher(map, geof);
+
+// Deuxième appel garanti (après que Leaflet a terminé son rendu)
+setTimeout(() => {
+  console.log("[GEOF] Retry affichage geofences après 500ms");
+  setupGeofenceWatcher(map, geof);
+}, 500);
 
     /* ------------------- NOISE (sonomètres) ---------------------------- */
     if (window.renderNoise) await window.renderNoise();
