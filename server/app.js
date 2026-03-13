@@ -178,13 +178,6 @@ app.post('/api/noise/ingest', (req, res) => {
 
 // GEOFENCES (inchangé)
 
-/* --- API GEOFENCES --- */
-app.get('/api/geofences', (req, res) => {
-  res.json({
-    items: []  // pour l’instant : vide mais VALIDE
-  });
-});
-
 /* ==========================================================
    API GEOFENCES – EBLG
    ========================================================== */
