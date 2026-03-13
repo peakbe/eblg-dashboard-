@@ -52,10 +52,9 @@ window.setupGeofenceWatcher = function (map, geof) {
 
   console.log(`Geofences affichées : ${geof.items.length}`);
 
-  // Watcher (placeholder) : ici tu peux ajouter la détection avion→zone si tu veux
+  // Watcher pour futures alertes avion→zone
   return function watcher(flights) {
-    // Exemple d’usage futur :
-    // flights.departures/arrivals/over => tester si un point est dans un polygone
+    // placeholder pour logique future
   };
 };
 
