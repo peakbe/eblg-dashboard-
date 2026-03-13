@@ -1,4 +1,3 @@
-
 /* =======================================================
    routes.js — version propre, complète et validée
    ======================================================= */
@@ -19,8 +18,16 @@ window.loadGeofences = async function () {
 
 // Affichage des geofences sur Leaflet + watcher optionnel
 window.setupGeofenceWatcher = function (map, geof) {
+  // 1) La carte n’est pas encore totalement prête ? On retry.
+  if (!map || typeof map.eachLayer !== "function") {
+    console.warn("[GEOF] Map pas encore prête → retry...");
+    setTimeout(() => window.setupGeofenceWatcher(map, geof), 300);
+    return () => {};
+  }
+
+  // 2) Les données geofence invalides → rien à faire.
   if (!geof || !Array.isArray(geof.items)) {
-    console.warn("[GEOF] Données invalides", geof);
+    console.warn("[GEOF] Données geofence invalides →", geof);
     return () => {};
   }
 
@@ -34,7 +41,7 @@ window.setupGeofenceWatcher = function (map, geof) {
     const polygon = L.polygon(zone.points, {
       color: zone.color || "#ff0000",
       weight: 2,
-      fillOpacity: 0.25,
+      fillOpacity: 0.25
     }).addTo(map);
 
     polygon.bindPopup(`<b>${zone.name}</b>`);
@@ -43,10 +50,8 @@ window.setupGeofenceWatcher = function (map, geof) {
 
   console.log(`[GEOF] Polygones affichés: ${layers.length}`);
 
-  // Watcher simple (placeholder)
+  // Watcher placeholder
   return function watcher(allFlights) {
-    // allFlights = {departures:[], arrivals:[], over:[]}
-    // Exemple de futur traitement
+    // Future alert logic here
   };
 };
-
