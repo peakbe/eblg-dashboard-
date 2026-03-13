@@ -1,11 +1,11 @@
 /* ===========================================================
-   EBLG Dashboard – main.js (PARTIE A)
-   - Utilitaires (distance, format)
-   - UI “Trafic”: bannière A3, mini heatmap, liste compact A2
+   EBLG Dashboard – main.js (Complet)
+   - Utilitaires (distance, format, fetchJson)
+   - UI Trafic: bannière A3, mini heatmap, liste compacte A2
    - Filtres Départs / Arrivées / Survols (insertion DOM)
-   - Filtrage de la réponse vols (après back 50 km)
-   - Dessin des vols sur couches Leaflet (fonction paramétrée)
-   - Aucune référence directe à `map` ici (injectée en PARTIE B)
+   - Dessin des vols (Leaflet) + logique 50 km (back) + B1
+   - METAR/TAF + piste probable RWY 22/04 + alerte
+   - Carte Esri Light Gray + couloirs + sonomètres + spinner
    =========================================================== */
 
 /* ------------------ Utilitaires généraux ------------------ */
@@ -44,6 +44,24 @@ function aircraftDisplay(f) {
   return f.aircraft_icao || "Type?";
 }
 
+/* ------------------ Helper fetch JSON robuste ------------------ */
+/* Evite l’erreur “Unexpected token '<' … not valid JSON” quand
+   le serveur renvoie du HTML (fallback / erreur) */
+async function fetchJson(url) {
+  const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  const text = await r.text();
+  const ct = (r.headers.get('content-type') || '').toLowerCase();
+  if (!ct.includes('application/json')) {
+    console.error('Non-JSON response from', url, 'status=', r.status, 'head=', text.slice(0, 200));
+    throw new Error(`Réponse non-JSON depuis ${url} (status ${r.status})`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error('JSON parse error for', url, e, 'payload head=', text.slice(0, 200));
+    throw e;
+  }
+}
 
 /* ------------------ Bloc UI: bannière / heatmap / liste ------------------ */
 
@@ -87,7 +105,6 @@ function renderCompactFlightList(flts) {
   return ul;
 }
 
-
 /* ------------------ Bloc UI: “Aucun vol” + bouton B1 ------------------ */
 
 // Contenu “aucun vol” + bouton “Afficher tous les vols LGG (zoom Europe)”
@@ -106,10 +123,9 @@ function renderNoCloseFlightsMessage(container, onShowAll) {
   container.appendChild(btn);
 }
 
+/* ------------------ Filtres “Départs / Arrivées / Survols” -------------- */
 
-/* ------------------ Filtres “Départs / Arrivées / Survols” ------------------ */
-
-// Insert les 3 cases sous le <h2> du panneau Trafic (emplacement stable)
+// Insère les 3 cases sous le <h2> du panneau Trafic (emplacement stable)
 function ensureFlightFilters() {
   const trafCard = document.getElementById('aircrafts');
   if (!trafCard) return;
@@ -129,9 +145,7 @@ function ensureFlightFilters() {
   `;
   h2.insertAdjacentElement("afterend", filters);
 }
-
 ensureFlightFilters();
-
 
 // Applique les filtres UI à la réponse backend (déjà 50 km côté serveur)
 function filterFlights(data) {
@@ -145,7 +159,6 @@ function filterFlights(data) {
     over:       sOvr ? (data.over       || []) : []
   };
 }
-
 
 /* ------------------ Dessin des vols sur couches Leaflet ------------------ */
 /*
@@ -161,7 +174,6 @@ function drawFlights(data, layers) {
 
   const add = (f, color, layer, label) => {
     if (!f || typeof f.lat !== 'number' || typeof f.lng !== 'number') return;
-    // aircraftDivIcon(color, heading) doit être défini dans icons.js
     const icon = (typeof aircraftDivIcon === 'function') ? aircraftDivIcon(color, f.dir || 0) : undefined;
     const id   = f.flight_iata || f.flight_icao || f.callsign || 'Vol';
     const reg  = f.reg_number ? ` · ${f.reg_number}` : '';
@@ -174,17 +186,8 @@ function drawFlights(data, layers) {
   (data.over       || []).forEach(f => add(f, '#a36bff', layerOver, 'Survol'));
 }
 
-
-/* ------------------ Expose certaines fonctions (debug/console) ----------- */
-window.renderTrafficBanner       = renderTrafficBanner;
-window.renderTrafficHeatmap      = renderTrafficHeatmap;
-window.renderCompactFlightList   = renderCompactFlightList;
-window.renderNoCloseFlightsMessage = renderNoCloseFlightsMessage;
-window.filterFlights             = filterFlights;
-window.drawFlights               = drawFlights;
-
 /* ===================================================================
-   PARTIE B – INITIALISATION CARTE + TRAFIC + METEO + RENDER
+   INITIALISATION CARTE + TRAFIC + METEO + RENDER
    =================================================================== */
 
 if (!window.__APP_INITIALIZED__) {
@@ -196,7 +199,6 @@ if (!window.__APP_INITIALIZED__) {
     const spinner = document.createElement("div");
     spinner.id = "spinner";
     document.body.appendChild(spinner);
-
 
     /* ----------------- CARTE LEAFLET (Esri light-gray) -------------- */
     const map = L.map("map", { zoomControl: true })
@@ -211,16 +213,13 @@ if (!window.__APP_INITIALIZED__) {
       .addTo(map)
       .bindPopup(`<b>${CONFIG.airport.name}</b><br>${CONFIG.airport.code}`);
 
-
     /* ----------------- Couloirs RWY 22 / 04 -------------------------- */
     if (typeof window.drawCorridors === "function") {
       window.drawCorridors(map);
     }
 
-
     /* ----------------- Sonomètres (icônes rondes) -------------------- */
     const layerNoise = L.layerGroup().addTo(map);
-
     CONFIG.noiseMonitors.forEach(m => {
       const iconHtml = `<div class="noise-pin"><span>${m.id}</span></div>`;
       const icon = L.divIcon({
@@ -234,9 +233,7 @@ if (!window.__APP_INITIALIZED__) {
         .bindPopup(`<b>${m.id}</b><br>${m.name}`);
     });
 
-
     /* ----------------- Piste probable (METAR/TAF) ------------------- */
-
     function inferRunway(wdir) {
       if (wdir == null) return "—";
       const diff22 = Math.abs(wdir - 222);
@@ -259,7 +256,6 @@ if (!window.__APP_INITIALIZED__) {
     function runwayAlert(newRwy) {
       if (!newRwy || newRwy === "—") return;
       const old = window.__RWY_STATE__ || null;
-
       if (old && old !== newRwy) {
         runwayBeep();
         const ul = document.getElementById("alerts-list");
@@ -269,30 +265,20 @@ if (!window.__APP_INITIALIZED__) {
           ul.prepend(li);
         }
       }
-
       window.__RWY_STATE__ = newRwy;
     }
 
-
-    /* ---------------------- METAR / TAF ------------------------------- */
     async function loadMetarTaf() {
       const panel = document.getElementById("weather");
       if (!panel) return;
-
       const safe = (v, fb = "—") => (v == null ? fb : v);
 
       try {
         const base = CONFIG.apiBase || "";
-        const [metarRes, tafRes] = await Promise.all([
-          fetch(`${base}/api/metar?icao=${CONFIG.airport.code}`),
-          fetch(`${base}/api/taf?icao=${CONFIG.airport.code}`)
+        const [metar, taf] = await Promise.all([
+          fetchJson(`${base}/api/metar?icao=${CONFIG.airport.code}`),
+          fetchJson(`${base}/api/taf?icao=${CONFIG.airport.code}`)
         ]);
-
-        if (!metarRes.ok) throw new Error(`METAR HTTP ${metarRes.status}`);
-        if (!tafRes.ok) throw new Error(`TAF HTTP ${tafRes.status}`);
-
-        const metar = await metarRes.json();
-        const taf   = await tafRes.json();
 
         const raw  = safe(metar?.raw);
         const temp = safe(metar?.temperature?.value);
@@ -318,7 +304,6 @@ if (!window.__APP_INITIALIZED__) {
           <div style="margin-top:10px;"><b>TAF (${CONFIG.airport.code})</b></div>
           <div class="metar-block">${safe(taf?.raw)}</div>
         `;
-
       } catch (e) {
         panel.innerHTML = `
           <h2>Météo (METAR/TAF)</h2>
@@ -327,6 +312,8 @@ if (!window.__APP_INITIALIZED__) {
       }
     }
 
+    // Expose pour debug si besoin (dans le bon scope)
+    window.loadMetarTaf = loadMetarTaf;
 
     /* ------------------- GEOFENCES ------------------------------------ */
     const geof = (window.loadGeofences ? await window.loadGeofences() : {});
@@ -335,33 +322,24 @@ if (!window.__APP_INITIALIZED__) {
       : () => {}
     );
 
-
     /* ------------------- NOISE (sonomètres) ---------------------------- */
     if (window.renderNoise) await window.renderNoise();
-
 
     /* ------------------- SLIDER ALTITUDE ------------------------------- */
     const altRange = document.getElementById("altRange");
     const altValue = document.getElementById("altValue");
-
     if (altRange && altValue) {
-      altRange.addEventListener("input", () => {
-        altValue.textContent = altRange.value;
-      });
+      altRange.addEventListener("input", () => { altValue.textContent = altRange.value; });
     }
-
 
     /* ------------------- COUCHES TRAFIC -------------------------------- */
     const layerDeps = L.layerGroup().addTo(map);
     const layerArrs = L.layerGroup().addTo(map);
     const layerOver = L.layerGroup().addTo(map);
-
     const layers = { layerDeps, layerArrs, layerOver };
 
-
     /* ------------------- LOGIQUE PRINCIPALE refreshFlights ------------- */
-
-    let showAllFlights = false;  // quand B1 est cliqué
+    let showAllFlights = false;  // activé par le bouton B1
 
     function zoomEurope() {
       // Zoom “Europe” niveau 4
@@ -371,18 +349,15 @@ if (!window.__APP_INITIALIZED__) {
     async function refreshFlights() {
       try {
         const base = CONFIG.apiBase || "";
-        const raw  = await fetch(`${base}/api/flights?scope=all`).then(r => r.json());
+        const raw  = await fetchJson(`${base}/api/flights?scope=all`);
 
-        const filtered = showAllFlights
-          ? raw
-          : filterFlights(raw);  // filtre UI (dep/arr/surv) → sur backend 50km
-
+        const filtered = showAllFlights ? raw : filterFlights(raw); // filtres UI sur 50 km back
         drawFlights(filtered, layers);
 
         // UI du panneau Trafic
         const trafCard = document.getElementById("aircrafts");
         const listsBlock = trafCard.querySelector(".lists");
-        listsBlock.innerHTML = "";  // on nettoie
+        listsBlock.innerHTML = "";  // reset
 
         const closeFlights = [
           ...(filtered.departures || []),
@@ -418,14 +393,12 @@ if (!window.__APP_INITIALIZED__) {
         }
 
         watcher(filtered);
-
       } catch (e) {
         console.error("refreshFlights error:", e);
       }
     }
 
     /* ------------------- LANCEMENT INITIAL ----------------------------- */
-
     await loadMetarTaf();
     await refreshFlights();
 
@@ -440,6 +413,3 @@ if (!window.__APP_INITIALIZED__) {
 
   }); // DOMContentLoaded
 }
-
-// Exposer pour debug éventuel
-window.loadMetarTaf = loadMetarTaf;
