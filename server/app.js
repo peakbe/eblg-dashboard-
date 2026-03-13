@@ -177,7 +177,6 @@ app.post('/api/noise/ingest', (req, res) => {
 
 
 // GEOFENCES (inchangé)
-import { /* ... ton code geofence existant ... */ } from "./geofences.js"; // si séparé
 
 
 // FALLBACK
