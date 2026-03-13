@@ -19,10 +19,11 @@ window.drawCorridors = drawCorridors;
    GEOFENCES – Chargement et affichage Leaflet
    ======================================================= */
 
-window.loadGeofences = async function() {
+window.loadGeofences = async function () {
   try {
     const base = CONFIG.apiBase || "";
-    const data = await fetch(`${base}/api/geofences`).then(r => r.json());
+    const res = await fetch(`${base}/api/geofences`);
+    const data = await res.json();
     console.log("Geofences chargées :", data);
     return data;
   } catch (e) {
@@ -31,19 +32,18 @@ window.loadGeofences = async function() {
   }
 };
 
-/* Dessine les geofences sur la carte */
-window.setupGeofenceWatcher = function(map, geof) {
+window.setupGeofenceWatcher = function (map, geof) {
   if (!geof || !geof.items) return () => {};
 
   const layers = [];
 
-  geof.items.forEach(zone => {
+  geof.items.forEach((zone) => {
     if (!zone.points || zone.points.length < 3) return;
 
     const poly = L.polygon(zone.points, {
       color: zone.color || "#ff0000",
       weight: 2,
-      fillOpacity: 0.15
+      fillOpacity: 0.15,
     }).addTo(map);
 
     poly.bindPopup(`<b>${zone.name}</b>`);
@@ -52,8 +52,10 @@ window.setupGeofenceWatcher = function(map, geof) {
 
   console.log(`Geofences affichées : ${geof.items.length}`);
 
-  // Watcher (optionnel, pour alertes avion-zones)
+  // Watcher (placeholder) : ici tu peux ajouter la détection avion→zone si tu veux
   return function watcher(flights) {
-    // Placeholder pour futures détections.
+    // Exemple d’usage futur :
+    // flights.departures/arrivals/over => tester si un point est dans un polygone
   };
 };
+
