@@ -15,3 +15,45 @@ function drawCorridors(map){
   return layer;
 }
 window.drawCorridors = drawCorridors;
+/* =======================================================
+   GEOFENCES – Chargement et affichage Leaflet
+   ======================================================= */
+
+window.loadGeofences = async function() {
+  try {
+    const base = CONFIG.apiBase || "";
+    const data = await fetch(`${base}/api/geofences`).then(r => r.json());
+    console.log("Geofences chargées :", data);
+    return data;
+  } catch (e) {
+    console.error("Erreur geofences :", e);
+    return { items: [] };
+  }
+};
+
+/* Dessine les geofences sur la carte */
+window.setupGeofenceWatcher = function(map, geof) {
+  if (!geof || !geof.items) return () => {};
+
+  const layers = [];
+
+  geof.items.forEach(zone => {
+    if (!zone.points || zone.points.length < 3) return;
+
+    const poly = L.polygon(zone.points, {
+      color: zone.color || "#ff0000",
+      weight: 2,
+      fillOpacity: 0.15
+    }).addTo(map);
+
+    poly.bindPopup(`<b>${zone.name}</b>`);
+    layers.push(poly);
+  });
+
+  console.log(`Geofences affichées : ${geof.items.length}`);
+
+  // Watcher (optionnel, pour alertes avion-zones)
+  return function watcher(flights) {
+    // Placeholder pour futures détections.
+  };
+};
