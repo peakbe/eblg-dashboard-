@@ -408,6 +408,22 @@ setTimeout(() => {
     await loadMetarTaf();
     await refreshFlights();
 
+   // --- GEOfences: second-pass auto draw (fix timing) ---
+   console.log("[GEOF] Second-pass draw triggered");
+
+(async () => {
+  const g = await loadGeofences();
+  setupGeofenceWatcher(map, g);
+
+  // Encore un safety-pass au cas où Leaflet charge lentement
+  setTimeout(async () => {
+    console.log("[GEOF] Safety-pass draw");
+    const g2 = await loadGeofences();
+    setupGeofenceWatcher(map, g2);
+  }, 500);
+})();
+
+     
     // Rafraîchissements périodiques
     setInterval(refreshFlights, 15000);          // trafic
     setInterval(loadMetarTaf, 5 * 60 * 1000);    // météo
