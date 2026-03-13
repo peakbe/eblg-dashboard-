@@ -178,8 +178,16 @@ app.post('/api/noise/ingest', (req, res) => {
 
 // GEOFENCES (inchangé)
 
+/* --- API GEOFENCES --- */
+app.get('/api/geofences', (req, res) => {
+  res.json({
+    items: []  // pour l’instant : vide mais VALIDE
+  });
+});
+``
 
 // FALLBACK
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, './public/index.html'));
 });
