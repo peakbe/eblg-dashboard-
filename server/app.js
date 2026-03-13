@@ -219,7 +219,6 @@ app.get('/api/geofences', (req, res) => {
           [50.6370, 5.4430]
         ]
       },
-
       {
         id: "st_georges",
         name: "Zone St‑Georges",
@@ -234,7 +233,6 @@ app.get('/api/geofences', (req, res) => {
           [50.6030, 5.3500]
         ]
       },
-
       {
         id: "verlaine",
         name: "Zone Verlaine",
@@ -249,7 +247,6 @@ app.get('/api/geofences', (req, res) => {
           [50.6150, 5.3000]
         ]
       },
-
       {
         id: "juprelle",
         name: "Zone Juprelle",
@@ -264,7 +261,6 @@ app.get('/api/geofences', (req, res) => {
           [50.7150, 5.5650]
         ]
       },
-
       {
         id: "haneffe",
         name: "Zone Haneffe",
@@ -279,7 +275,6 @@ app.get('/api/geofences', (req, res) => {
           [50.6450, 5.3300]
         ]
       },
-
       {
         id: "aineffe",
         name: "Zone Aineffe",
