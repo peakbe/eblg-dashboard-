@@ -146,7 +146,9 @@ app.post('/api/noise/ingest', (req, res) => {
   res.json({ ok: true, stored: rec });
 });
 
-/* -------------------- Flights (AirLabs) -------------------- */
+/* ==========================================================
+   TOOLS
+   ========================================================== */
 import axios from "axios";
 
 function haversineKm(lat1, lon1, lat2, lon2) {
@@ -154,69 +156,161 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   const toRad = d => d * Math.PI / 180;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon / 2) ** 2;
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLon/2)**2;
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-app.get("/api/flights", async (req, res) => {
-  const { scope = "near" } = req.query;
-  const AIRLABS_KEY = process.env.AIRLABS_KEY;
+/* ==========================================================
+   ROUTE DIAGNOSTIC AIRLABS
+   ========================================================== */
+app.get("/api/_diag/airlabs", async (req, res) => {
+  const AIRLABS_KEY = process.env.AIRLABS_KEY || "";
   const BASE = "https://airlabs.co/api/v9";
-  const C_LAT = 50.637, C_LON = 5.443;
 
-  if (!AIRLABS_KEY) {
-    return res.status(500).json({ error: "AirLabs error", details: "Missing AIRLABS_KEY" });
-  }
-
-  const headers = {
-    "User-Agent": "EBLG-Dashboard/1.0 (+https://eblg-dashboard.onrender.com)",
-    "Accept-Encoding": "gzip"
+  const result = {
+    now: new Date().toISOString(),
+    env: { airlabs_key_present: AIRLABS_KEY ? true : false },
+    checks: [],
+    summary: "UNKNOWN"
   };
 
+  if (!AIRLABS_KEY) {
+    result.summary = "FAIL";
+    result.checks.push({
+      name: "env.AIRLABS_KEY",
+      ok: false,
+      error: "Missing AIRLABS_KEY"
+    });
+    return res.status(500).json(result);
+  }
+
+  async function ping(name, url, params = {}) {
+    const started = Date.now();
+    try {
+      const r = await axios.get(url, {
+        params: { api_key: AIRLABS_KEY, ...params },
+        headers: {
+          "User-Agent": "EBLG-Dashboard/diag",
+          "Accept-Encoding": "gzip"
+        },
+        timeout: 10000
+      });
+      const ms = Date.now() - started;
+      const body = r.data || {};
+      const count = Array.isArray(body.response) ? body.response.length : 0;
+      return { name, ok: true, status: r.status, ms, count };
+    } catch (e) {
+      const ms = Date.now() - started;
+      return {
+        name, ok: false, ms,
+        status: e?.response?.status,
+        error: e?.response?.data || e.message
+      };
+    }
+  }
+
+  const checks = await Promise.all([
+    ping("dep_lgg", `${BASE}/flights`, { dep_iata: "LGG" }),
+    ping("arr_lgg", `${BASE}/flights`, { arr_iata: "LGG" }),
+    ping("all",     `${BASE}/flights`) // base dataset
+  ]);
+
+  result.checks = checks;
+
+  const okCount = checks.filter(c => c.ok).length;
+  if (okCount === checks.length)      result.summary = "OK";
+  else if (okCount > 0)              result.summary = "PARTIAL";
+  else                               result.summary = "FAIL";
+
+  const code =
+    result.summary === "OK"      ? 200 :
+    result.summary === "PARTIAL" ? 207 :
+                                   502;
+
+  return res.status(code).json(result);
+});
+
+/* ==========================================================
+   ROUTE /api/flights — VERSION 2026 CORRIGÉE
+   ========================================================== */
+app.get("/api/flights", async (req, res) => {
+  const { scope = "near" } = req.query;
+  const AIRLABS_KEY = process.env.AIRLABS_KEY || "";
+  const BASE = "https://airlabs.co/api/v9";
+
+  const C_LAT = 50.6370;
+  const C_LON = 5.4430;
+
+  if (!AIRLABS_KEY) {
+    return res.status(500).json({
+      error: "AirLabs error",
+      details: "Missing AIRLABS_KEY"
+    });
+  }
+
   try {
-    // Appels AirLabs (bon domaine)
-    const [dep, arr, over] = await Promise.all([
-      axios.get(`${BASE}/flights`, { params: { dep_iata: "LGG", api_key: AIRLABS_KEY }, headers, timeout: 10000 }),
-      axios.get(`${BASE}/flights`, { params: { arr_iata: "LGG", api_key: AIRLABS_KEY }, headers, timeout: 10000 }),
-      // “nearby” peut exister selon plan ; alternative sûre : flights + filtrage front/back
-      axios.get(`${BASE}/flights`, { params: { api_key: AIRLABS_KEY }, headers, timeout: 10000 }),
+    const headers = {
+      "User-Agent": "EBLG-Dashboard/1.0",
+      "Accept-Encoding": "gzip"
+    };
+
+    const [depR, arrR, allR] = await Promise.all([
+      axios.get(`${BASE}/flights`, {
+        params: { dep_iata: "LGG", api_key: AIRLABS_KEY },
+        headers, timeout: 10000
+      }),
+      axios.get(`${BASE}/flights`, {
+        params: { arr_iata: "LGG", api_key: AIRLABS_KEY },
+        headers, timeout: 10000
+      }),
+      axios.get(`${BASE}/flights`, {
+        params: { api_key: AIRLABS_KEY },
+        headers, timeout: 10000
+      })
     ]);
 
-    const departures = dep.data?.response || [];
-    const arrivals   = arr.data?.response || [];
-    const all        = over.data?.response || [];
+    const dep = depR.data?.response || [];
+    const arr = arrR.data?.response || [];
+    const all = allR.data?.response || [];
 
-    // Survols = vols “proches” (50 km) calculés à partir de la 3e liste (ou vide si plan restreint)
-    const overNear = all.filter(f => typeof f.lat === "number" && typeof f.lng === "number" &&
-                                     haversineKm(C_LAT, C_LON, f.lat, f.lng) <= 50);
-
+    // Mode RAW complet
     if (scope === "all") {
       return res.json({
-        departures,
-        arrivals,
+        departures: dep,
+        arrivals: arr,
         over: all
       });
     }
 
-    // scope=near : filtre 50 km pour dep/arr
-    const depNear = departures.filter(f => typeof f.lat === "number" && typeof f.lng === "number" &&
-                                           haversineKm(C_LAT, C_LON, f.lat, f.lng) <= 50);
-    const arrNear = arrivals.filter(f => typeof f.lat === "number" && typeof f.lng === "number" &&
-                                         haversineKm(C_LAT, C_LON, f.lat, f.lng) <= 50);
+    // Mode NEAR 50 km
+    const dep50 = dep.filter(f =>
+      typeof f.lat === "number" &&
+      typeof f.lng === "number" &&
+      haversineKm(C_LAT, C_LON, f.lat, f.lng) <= 50
+    );
+
+    const arr50 = arr.filter(f =>
+      typeof f.lat === "number" &&
+      typeof f.lng === "number" &&
+      haversineKm(C_LAT, C_LON, f.lat, f.lng) <= 50
+    );
+
+    const over50 = all.filter(f =>
+      typeof f.lat === "number" &&
+      typeof f.lng === "number" &&
+      haversineKm(C_LAT, C_LON, f.lat, f.lng) <= 50
+    );
 
     return res.json({
-      departures: depNear,
-      arrivals:   arrNear,
-      over:       overNear
+      departures: dep50,
+      arrivals: arr50,
+      over: over50
     });
 
   } catch (e) {
-    // Log utile côté serveur
-    console.error("AirLabs flights error:", e?.response?.data || e.message);
-    // Réponse côté client
+    console.error("AirLabs /api/flights error:", e?.response?.data || e.message);
     return res.status(500).json({
       error: "AirLabs error",
       details: e?.response?.data || e.message
