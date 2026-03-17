@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "./public")));
+app.use(express.static(path.join(__dirname, "../public")));
 
 // ---------- Cache 60s ----------
 const cache = new NodeCache({ stdTTL: 60, checkperiod: 20 });
