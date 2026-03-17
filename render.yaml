@@ -1,20 +1,10 @@
 services:
   - type: web
     name: eblg-dashboard
-    runtime: docker
-    dockerfilePath: server/Dockerfile
+    runtime: node
+    rootDir: .
+    buildCommand: npm install
+    startCommand: npm start
     envVars:
-      - key: AVWX_TOKEN
-        sync: false
-      - key: AIRLABS_KEY
-        sync: false
-      - key: PORT
-        value: "10000"
-    autoDeploy: true
-    buildFilter:
-      paths:
-        - server/**
-        - public/**
-        - README.md
-        - render.yaml
-        - server/Dockerfile
+      - key: NODE_ENV
+        value: production
