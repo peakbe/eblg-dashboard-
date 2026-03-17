@@ -1,3 +1,15 @@
+function pointInPolygon(point, vs) {
+  const x = point[0], y = point[1];
+  let inside = false;
+  for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    const xi = vs[i][0], yi = vs[i][1];
+    const xj = vs[j][0], yj = vs[j][1];
+    const intersect = ((yi > y) !== (yj > y)) &&
+      (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
 function destPoint(lat, lon, bearingDeg, distanceKm){
   const R=6371, br=bearingDeg*Math.PI/180, dR=distanceKm/R;
   const la=lat*Math.PI/180, lo=lon*Math.PI/180;
