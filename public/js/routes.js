@@ -47,15 +47,17 @@ window.loadGeofences = async function () {
     console.log("[GEOF] Geofences chargées:", data);
     return data;
   
-  } catch (e) {
+ } catch (e) {
     console.error("[GEOF] Erreur geofences:", e);
     return { items: [] };
   }
 }
 
-Sonomètres fixes LGG (18)
+// ======================================================
+// 3-3) Sonomètres fixes — LGG (18)
 // ======================================================
 function createSonometersLayer(map) {
+``
   const sensors = [
     { id: "F017", addr: "Rue de la Pommeraie, Wonck",        lat: 50.764883, lon: 5.630606 },
     { id: "F001", addr: "Rue Franquet, Houtain",             lat: 50.738044, lon: 5.608833 },
