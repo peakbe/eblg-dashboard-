@@ -46,11 +46,14 @@ window.loadGeofences = async function () {
     const data = await res.json();
     console.log("[GEOF] Geofences chargées:", data);
     return data;
+  
   } catch (e) {
     console.error("[GEOF] Erreur geofences:", e);
     return { items: [] };
   }
-) Sonomètres fixes LGG (18)
+}
+
+Sonomètres fixes LGG (18)
 // ======================================================
 function createSonometersLayer(map) {
   const sensors = [
