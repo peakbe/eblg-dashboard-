@@ -22,17 +22,18 @@ function pointInPolygon(point, vs) {
 }
 
 // ======================================================
-// 2) Fonction utilitaire distance (Haversine) pour le pulse
+// 2) Distance Haversine (pour pulse < 3 km)
 // ======================================================
 function distanceKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI/180;
-  const dLon = (lon2 - lon1) * Math.PI/180;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
   const a =
-    Math.sin(dLat/2)**2 +
-    Math.cos(lat1*Math.PI/180) *
-    Math.cos(lat2*Math.PI/180) *
-    Math.sin(dLon/2)**2;
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
@@ -46,15 +47,14 @@ window.loadGeofences = async function () {
     const data = await res.json();
     console.log("[GEOF] Geofences chargées:", data);
     return data;
-  
- } catch (e) {
+  } catch (e) {
     console.error("[GEOF] Erreur geofences:", e);
     return { items: [] };
   }
 }
 
 // ======================================================
-// 3-3) Sonomètres fixes — LGG (18)
+// 4) Création des sonomètres LGG (18)
 // ======================================================
 function createSonometersLayer(map) {
   const sensors = [
@@ -89,16 +89,16 @@ function createSonometersLayer(map) {
   });
 
   sensors.forEach(s => {
-    const m = L.marker([s.lat, s.lon], { icon }).addTo(window.__SENSORS_LAYER);
-    m.__id = s.id;
-    m.__addr = s.addr;
-    m.bindPopup(`<b>${s.id}</b><br>${s.addr}`);
+    const marker = L.marker([s.lat, s.lon], { icon }).addTo(window.__SENSORS_LAYER);
+    marker.__id = s.id;
+    marker.__addr = s.addr;
+    marker.bindPopup(`<b>${s.id}</b><br>${s.addr}`);
   });
 
-  console.log(`[SENSORS] ${sensors.length} sonomètres ajoutés`);
+  console.log("[SENSORS] Sonomètres chargés :", sensors.length);
 }
 
-// Ajout du style pour le marqueur et le pulse
+// Ajout du CSS dynamique
 const style = document.createElement("style");
 style.innerHTML = `
 .sensor-dot {
@@ -118,193 +118,4 @@ style.innerHTML = `
 }
 `;
 document.head.appendChild(style);
-// ====================================================================
-// 4) Watcher dynamique geofences + affichage
-// ====================================================================
-window.setupGeofenceWatcher = function (map, geof) {
-  // Retry si la carte n'est pas prête
-  if (!map || typeof map.eachLayer !== "function") {
-    console.warn("[GEOF] Map pas encore prête → retry...");
-    setTimeout(() => window.setupGeofenceWatcher(map, geof), 300);
-    return () => {};
-  }
-
-  // Données invalides
-  if (!geof || !Array.isArray(geof.items)) {
-    console.warn("[GEOF] Données geofence invalides →", geof);
-    return () => {};
-  }
-
-  console.log(`[GEOF] Rendu des zones: ${geof.items.length}`);
-
-  // LayerGroup global (unique)
-  if (!window.__GEOF_LAYERGROUP) {
-    window.__GEOF_LAYERGROUP = L.layerGroup().addTo(map);
-  } else {
-    window.__GEOF_LAYERGROUP.clearLayers();
-  }
-
-  const layers = [];
-  const insideState = new Map();
-
-  // ============================
-  // 4a) DESSIN DES POLYGONES
-  // ============================
-  geof.items.forEach((zone) => {
-    if (!zone.points || zone.points.length < 3) return;
-
-    const polygon = L.polygon(zone.points, {
-      color: zone.color || "#ff8800",
-      weight: 2,
-      fillOpacity: 0.25
-    }).addTo(window.__GEOF_LAYERGROUP);
-
-    // Mémorisation utile pour le watcher
-    polygon.__zoneId = zone.id;
-    polygon.__origColor = zone.color || "#ff8800";
-
-    layers.push(polygon);
-  });
-
-  console.log(`[GEOF] Polygones affichés: ${layers.length}`);
-
-  // ============================
-  // 4b) RECADRAGE AUTOMATIQUE
-  // ============================
-  if (layers.length) {
-    const b = L.latLngBounds();
-    layers.forEach(l => b.extend(l.getBounds()));
-    map.fitBounds(b, { padding: [28, 28] });
-  }
-
-  // ============================
-  // 4c) AJOUT DES SONOMÈTRES
-  // ============================
-  createSonometersLayer(map);
-
-  // ====================================================================
-  // 4d) WATCHER VOLS → ZONES + ALERTES + PULSE (<3km)
-  // ====================================================================
-  return function watcher(allFlights) {
-
-    // On fusionne les trois types de vols
-    const { departures = [], arrivals = [], over = [] } = allFlights;
-    const flights = [...departures, ...arrivals, ...over];
-
-    flights.forEach(f => {
-      if (!f.lat || !f.lng) return;
-
-      const p = [f.lat, f.lng];
-      const flightId = (
-        f.hex ||
-        f.flight_iata ||
-        f.flight_icao ||
-        f.callsign ||
-        f.reg_number ||
-        ("UNK_" + Math.random())
-      );
-
-      // ----------- CHECK DES ZONES -----------
-      layers.forEach(poly => {
-        const zoneId = poly.__zoneId;
-        const key = `${zoneId}:${flightId}`;
-
-        const wasIn = insideState.get(key) || false;
-
-        const ring = poly.getLatLngs()[0];
-        const vs = ring.map(pt => [pt.lat, pt.lng]);
-        const isIn = pointInPolygon(p, vs);
-
-        // ====== ENTRÉE ======
-        if (isIn && !wasIn) {
-          insideState.set(key, true);
-
-          // Couleur dynamique rouge
-          poly.setStyle({ color: "#ff0000", fillOpacity: 0.55 });
-
-          // Popup
-          poly.bindPopup(`<b>${zoneId}</b><br>Vol : ${flightId}`).openPopup();
-
-          // Ajout à ALERTES
-          const ul = document.getElementById("alerts-list");
-          if (ul) {
-            const li = document.createElement("li");
-            li.textContent =
-              `[${new Date().toLocaleTimeString()}] ${flightId} est entré dans ${zoneId}`;
-            ul.prepend(li);
-          }
-
-          console.log(`[ALERTE] ${flightId} → entrée dans ${zoneId}`);
-        }
-
-        // ====== SORTIE ======
-        if (!isIn && wasIn) {
-          insideState.set(key, false);
-          poly.setStyle({ color: poly.__origColor, fillOpacity: 0.25 });
-          console.log(`[INFO] ${flightId} → sortie de ${zoneId}`);
-        }
-      }); // fin boucle polygones
-
-
-      // ----------- CHECK DES SONOMÈTRES (pulse < 3 km) -----------
-      if (window.__SENSORS_LAYER) {
-        window.__SENSORS_LAYER.eachLayer(marker => {
-          const el = marker._icon?.firstElementChild;
-          if (!el) return;
-
-          let isNear = false;
-
-          const d = distanceKm(
-            f.lat, f.lng,
-            marker.getLatLng().lat,
-            marker.getLatLng().lng
-          );
-
-          if (d <= 3) isNear = true;
-
-          if (isNear) {
-            el.classList.add("sensor-pulse");
-            el.style.background = "#ff3300"; // rouge/orange
-          } else {
-            el.classList.remove("sensor-pulse");
-            el.style.background = "#0a3d91"; // couleur normale
-          }
-        });
-      }
-
-    }); // fin boucle vols
-
-  }; // fin watcher
-};
-// ====================================================================
-// 5) Bouton ON / OFF pour afficher / masquer les sonomètres
-// ====================================================================
-
-// Fonction appelée par le bouton
-window.toggleSensors = function() {
-  const btn = document.getElementById("toggle-sensors");
-  if (!window.__SENSORS_LAYER) return;
-
-  if (map.hasLayer(window.__SENSORS_LAYER)) {
-    map.removeLayer(window.__SENSORS_LAYER);
-    btn.textContent = "Sonomètres OFF";
-    btn.classList.add("off");
-  } else {
-    window.__SENSORS_LAYER.addTo(map);
-    btn.textContent = "Sonomètres ON";
-    btn.classList.remove("off");
-  }
-};
-
-// Activation du bouton quand la page est prête
-document.addEventListener("DOMContentLoaded", () => {
-  const btn = document.getElementById("toggle-sensors");
-  if (btn) {
-    btn.addEventListener("click", window.toggleSensors);
-    btn.textContent = "Sonomètres ON";
-  }
-});
-
-// ====================================================================
-// FIN DU FICHIER routes.js (version complète)
-// ====================================================================
+``
