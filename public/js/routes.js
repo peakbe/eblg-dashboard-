@@ -86,6 +86,12 @@ window.setupGeofenceWatcher = function (map, geof) {
 
   console.log(`[GEOF] Polygones affichés: ${layers.length}`);
 
+  // 🔎 Recadrage automatique pour que tu voies les polygones
+  if (layers.length) {
+    const b = L.latLngBounds();
+    layers.forEach(l => b.extend(l.getBounds()));
+    map.fitBounds(b, { padding: [28, 28] });
+
   // ======================================================
   // 3b) WATCHER dynamique (ALERTES ZONES)
   // ======================================================
