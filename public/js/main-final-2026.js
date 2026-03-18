@@ -200,13 +200,14 @@ if (!window.__APP_INITIALIZED__) {
     spinner.id = "spinner";
     document.body.appendChild(spinner);
 
-    /* ----------------- CARTE LEAFLET (Esri light-gray) -------------- */
-    const map = L.map("map", { zoomControl: true })
-      .setView([CONFIG.airport.lat, CONFIG.airport.lon], 12);
+       /* ----------------- CARTE LEAFLET (OSM light) -------------- */
+const map = L.map("map", { zoomControl: true })
+  .setView([CONFIG.airport.lat, CONFIG.airport.lon], 12);
 
-    L.tileLayer(CONFIG.mapTiles.esriLightGray.url, {
-      attribution: CONFIG.mapTiles.esriLightGray.attribution
-    }).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap'
+}).addTo(map);
 
     // Aéroport (marqueur)
     L.marker([CONFIG.airport.lat, CONFIG.airport.lon])
