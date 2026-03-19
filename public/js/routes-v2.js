@@ -107,26 +107,27 @@ function createSonometersLayer(map) {
   console.log("[SENSORS] Sonomètres chargés :", sensors.length);
 }
 
-// Ajout du CSS dynamique
-const style = document.createElement("style");
-style.innerHTML = `
-.sensor-dot {
-  width:12px; height:12px;
-  border-radius:50%;
-  background:#0a3d91;
-  border:2px solid #fff;
-  box-shadow:0 0 4px rgba(0,0,0,.3);
+// Ajout du CSS dynamique (protégé contre les doublons)
+if (!document.getElementById("sensor-style")) {
+  const sensorStyleEl = document.createElement("style");
+  sensorStyleEl.id = "sensor-style";
+  sensorStyleEl.textContent = `
+    .sensor-dot {
+      width:12px; height:12px; border-radius:50%;
+      background:#0a3d91; border:2px solid #fff;
+      box-shadow:0 0 4px rgba(0,0,0,.3);
+    }
+    .sensor-pulse {
+      animation:pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform:scale(1);   box-shadow:0 0 4px rgba(255,0,0,.4); }
+      50%{ transform:scale(1.5); box-shadow:0 0 10px rgba(255,80,0,.7); }
+      100%{ transform:scale(1);  box-shadow:0 0 4px rgba(255,0,0,.4); }
+    }
+  `;
+  document.head.appendChild(sensorStyleEl);
 }
-.sensor-pulse {
-  animation:pulse 1.2s infinite;
-}
-@keyframes pulse {
-  0% { transform:scale(1);   box-shadow:0 0 4px rgba(255,0,0,.4); }
-  50%{ transform:scale(1.5); box-shadow:0 0 10px rgba(255,80,0,.7); }
-  100%{ transform:scale(1);  box-shadow:0 0 4px rgba(255,0,0,.4); }
-}
-`;
-document.head.appendChild(style);
 
 // ====================================================================
 // 5) Geofences + Watcher dynamique vols → zones
