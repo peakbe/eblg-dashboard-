@@ -1,3 +1,12 @@
+// Empêche d'exécuter deux fois le même fichier si chargé en double
+if (window.__ROUTES_LOADED__) {
+  console.warn("[routes] déjà chargé — on ignore ce chargement");
+  // On stoppe ici: ne surtout pas ré-exécuter le fichier
+} else {
+  window.__ROUTES_LOADED__ = true;
+  (function() {
+    // --- Tout le reste du code de routes-v2.js va à l’intérieur de cette IIFE ---
+``
 // ====================================================================
 // routes.js — Version complète (Geofences + Sonomètres + Toggle + Pulse)
 // ====================================================================
@@ -289,3 +298,5 @@ document.addEventListener("DOMContentLoaded", () => {
 // FIN DU FICHIER
 // ====================================================================
 ``
+})();
+}
