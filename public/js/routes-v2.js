@@ -6,7 +6,7 @@ if (window.__ROUTES_LOADED__) {
   window.__ROUTES_LOADED__ = true;
   (function() {
     // --- Tout le reste du code de routes-v2.js va à l’intérieur de cette IIFE ---
-``
+
 // ====================================================================
 // routes.js — Version complète (Geofences + Sonomètres + Toggle + Pulse)
 // ====================================================================
@@ -298,6 +298,6 @@ document.addEventListener("DOMContentLoaded", () => {
 // ====================================================================
 // FIN DU FICHIER
 // ====================================================================
-``
+
 })();
 }
