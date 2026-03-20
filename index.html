@@ -4,7 +4,13 @@
   <meta charset="UTF-8" />
   <title>EBLG – FIDS, METAR, sonomètres</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- PolylineDecorator (flèches) -->
+  <script src="https://unpkg.com/leaflet-polylinedecorator@1.7.0/dist/leaflet.polyline-decorator.min.js"></script>
+
   <style>
     body { margin:0; font-family:system-ui; display:flex; flex-direction:column; height:100vh; }
     header { padding:0.5rem 1rem; background:#111827; color:#f9fafb; display:flex; justify-content:space-between; }
@@ -62,17 +68,12 @@
 /* ----------------------------------------------------------
    CONFIG
 ---------------------------------------------------------- */
-const AVWX_API_KEY = "ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc"; // ← remplace ceci
+const AVWX_API_KEY = "ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc";
 
-// Ton proxy Render (ex: https://eblg-proxy.onrender.com)
-const PROXY = "https://eblg-proxy.onrender.com/";
+const PROXY = "https://eblg-proxy.onrender.com/proxy?url=";
 
-const FIDS_ARR = "https://eblg-proxy.onrender.com/proxy?url=" +
-  encodeURIComponent("https://fids.liegeairport.com/api/flights/Arrivals");
-
-const FIDS_DEP = "https://eblg-proxy.onrender.com/proxy?url=" +
-  encodeURIComponent("https://fids.liegeairport.com/api/flights/Departures");
-
+const FIDS_ARR = PROXY + encodeURIComponent("https://fids.liegeairport.com/api/flights/Arrivals");
+const FIDS_DEP = PROXY + encodeURIComponent("https://fids.liegeairport.com/api/flights/Departures");
 
 const EBLG = { lat:50.6374, lon:5.4432, runways:[
   { name:"04", heading:40 },
@@ -120,6 +121,7 @@ const SONO_MARKERS = SONOS.map(s => ({
 }));
 
 let corridorLayer = null;
+let arrowLayer = null;
 
 /* ----------------------------------------------------------
    METAR
@@ -138,12 +140,12 @@ function updateMetarUI(m) {
 }
 
 /* ----------------------------------------------------------
-   FIDS (via ton proxy Render)
+   FIDS
 ---------------------------------------------------------- */
 async function fetchFIDS() {
   const [arr, dep] = await Promise.all([
-    fetch(URL_ARR).then(r => r.json()),
-    fetch(URL_DEP).then(r => r.json())
+    fetch(FIDS_ARR).then(r => r.json()),
+    fetch(FIDS_DEP).then(r => r.json())
   ]);
 
   return {
@@ -176,7 +178,7 @@ function format(t) {
 }
 
 /* ----------------------------------------------------------
-   RUNWAY + COULOIR BRUIT
+   RUNWAY + COULOIR + FLÈCHES
 ---------------------------------------------------------- */
 function extractRunway(f) {
   const all = [...f.arrivals, ...f.departures];
@@ -200,32 +202,47 @@ function computePoint([lat,lon], heading, km) {
   return [la2*180/Math.PI, lo2*180/Math.PI];
 }
 
-function offset([lat,lon], heading, km) {
-  return computePoint([lat,lon], heading, km);
-}
-
 function buildCorridor(heading) {
   const start = [EBLG.lat, EBLG.lon];
   const end = computePoint(start, heading, 20);
 
-  const leftStart = offset(start, heading - 90, 1.5);
-  const rightStart = offset(start, heading + 90, 1.5);
-  const leftEnd = offset(end, heading - 90, 3.5);
-  const rightEnd = offset(end, heading + 90, 3.5);
+  const leftStart = computePoint(start, heading - 90, 1.5);
+  const rightStart = computePoint(start, heading + 90, 1.5);
+  const leftEnd = computePoint(end, heading - 90, 3.5);
+  const rightEnd = computePoint(end, heading + 90, 3.5);
 
-  return [leftStart, leftEnd, rightEnd, rightStart];
+  return {
+    polygon: [leftStart, leftEnd, rightEnd, rightStart],
+    centerline: [start, end]
+  };
 }
 
 function computeImpacted(heading) {
-  const poly = buildCorridor(heading);
+  const { polygon, centerline } = buildCorridor(heading);
 
   if (corridorLayer) map.removeLayer(corridorLayer);
-  corridorLayer = L.polygon(poly, {color:"#f97316", weight:2, fillOpacity:0.15}).addTo(map);
+  corridorLayer = L.polygon(polygon, {color:"#f97316", weight:2, fillOpacity:0.15}).addTo(map);
+
+  // Flèches
+  if (arrowLayer) map.removeLayer(arrowLayer);
+  arrowLayer = L.polylineDecorator(centerline, {
+    patterns: [
+      {
+        offset: 0,
+        repeat: 200,
+        symbol: L.Symbol.arrowHead({
+          pixelSize: 14,
+          polygon: false,
+          pathOptions: { stroke: true, color: "#f97316", weight: 3 }
+        })
+      }
+    ]
+  }).addTo(map);
 
   const impacted = [];
 
   SONO_MARKERS.forEach(s => {
-    const inside = L.polygon(poly).getBounds().contains([s.lat, s.lon]);
+    const inside = L.polygon(polygon).getBounds().contains([s.lat, s.lon]);
     s.marker.setStyle(inside ? {color:"#b91c1c", fillColor:"#b91c1c"} : {color:"#2563eb", fillColor:"#2563eb"});
     if (inside) impacted.push(s);
   });
