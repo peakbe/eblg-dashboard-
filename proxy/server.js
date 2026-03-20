@@ -4,7 +4,7 @@ import fetch from "node-fetch";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware CORS global
+// CORS global
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "*");
@@ -15,21 +15,29 @@ app.use((req, res, next) => {
   next();
 });
 
-// Proxy principal
-app.get("/fids", async (req, res) => {
+// Proxy principal : /proxy?url=...
+app.get("/proxy", async (req, res) => {
   try {
     const url = req.query.url;
-    if (!url) return res.status(400).json({ error: "Missing url parameter" });
+    if (!url) {
+      return res.status(400).json({ error: "Missing url parameter" });
+    }
 
-    const r = await fetch(url);
-    const data = await r.text();
+    const response = await fetch(url);
+    const contentType = response.headers.get("content-type") || "application/json";
+    const body = await response.text();
 
-    res.setHeader("Content-Type", r.headers.get("content-type") || "application/json");
-    res.send(data);
+    res.setHeader("Content-Type", contentType);
+    res.send(body);
 
   } catch (err) {
-    res.status(500).json({ error: "Proxy error", details: err.toString() });
+    res.status(500).json({
+      error: "Proxy error",
+      details: err.toString()
+    });
   }
 });
 
-app.listen(PORT, () => console.log("Proxy running on port " + PORT));
+app.listen(PORT, () => {
+  console.log("Proxy running on port " + PORT);
+});
