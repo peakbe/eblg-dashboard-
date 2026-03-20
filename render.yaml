@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: eblg-proxy
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "node server.js"
+    autoDeploy: true
+    envVars:
+      NODE_VERSION: 18
