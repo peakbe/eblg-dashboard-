@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>EBLG – FIDS, METAR, sonomètres</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { margin:0; font-family:system-ui; display:flex; flex-direction:column; height:100vh; }
+    header { padding:0.5rem 1rem; background:#111827; color:#f9fafb; display:flex; justify-content:space-between; }
+    main { display:grid; grid-template-columns:320px 1fr; flex:1; }
+    #sidebar { padding:0.75rem; overflow-y:auto; border-right:1px solid #ddd; font-size:0.85rem; }
+    #map { width:100%; height:100%; }
+    .block { margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid #ddd; }
+    .metar { background:#f3f4f6; padding:0.5rem; border-radius:4px; font-family:monospace; }
+    .small { font-size:0.75rem; color:#555; }
+    .tag { background:#eee; padding:2px 6px; border-radius:4px; font-size:0.7rem; }
+    .tag.impacted { background:#b91c1c; color:white; }
+    .flight-row { padding:4px 0; cursor:pointer; }
+    .flight-row:hover { background:#f3f4f6; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>EBLG – FIDS + METAR + Sonomètres</h1>
+  <div class="small">Version GitHub + Render</div>
+</header>
+
+<main>
+  <section id="sidebar">
+
+    <div class="block">
+      <h2>Météo EBLG</h2>
+      <div id="meteo-summary" class="small">Chargement...</div>
+      <div id="meteo-raw" class="metar"></div>
+    </div>
+
+    <div class="block">
+      <h2>Piste & couloir bruit</h2>
+      <div id="runway-info" class="small">Analyse en cours...</div>
+    </div>
+
+    <div class="block">
+      <h2>Sonomètres impactés</h2>
+      <div id="sonos-impacted" class="small">En attente...</div>
+    </div>
+
+    <div class="block">
+      <h2>Vols confirmés (FIDS)</h2>
+      <div id="flights-list" class="small">Chargement...</div>
+    </div>
+
+  </section>
+
+  <section id="map"></section>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+/* ----------------------------------------------------------
+   CONFIG
+---------------------------------------------------------- */
+const AVWX_API_KEY = "ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc"; // ← remplace ceci
+
+// Ton proxy Render (ex: https://eblg-proxy.onrender.com)
+const PROXY = "eblg-dashboard.onrender.com";
+
+const URL_ARR = PROXY + encodeURIComponent("https://fids.liegeairport.com/api/flights/Arrivals");
+const URL_DEP = PROXY + encodeURIComponent("https://fids.liegeairport.com/api/flights/Departures");
+
+const EBLG = { lat:50.6374, lon:5.4432, runways:[
+  { name:"04", heading:40 },
+  { name:"22", heading:220 }
+]};
+
+/* ----------------------------------------------------------
+   SONOMÈTRES
+---------------------------------------------------------- */
+const SONOS = [
+  { id:"F017", lat:50.764883, lon:5.630606 },
+  { id:"F001", lat:50.737, lon:5.608833 },
+  { id:"F014", lat:50.718894, lon:5.573164 },
+  { id:"F015", lat:50.688839, lon:5.526217 },
+  { id:"F005", lat:50.639331, lon:5.323519 },
+  { id:"F003", lat:50.601167, lon:5.3814 },
+  { id:"F011", lat:50.601142, lon:5.356006 },
+  { id:"F008", lat:50.594878, lon:5.35895 },
+  { id:"F002", lat:50.588414, lon:5.370522 },
+  { id:"F007", lat:50.590756, lon:5.345225 },
+  { id:"F009", lat:50.580831, lon:5.355417 },
+  { id:"F004", lat:50.605414, lon:5.321406 },
+  { id:"F010", lat:50.599392, lon:5.313492 },
+  { id:"F013", lat:50.586914, lon:5.308678 },
+  { id:"F016", lat:50.619617, lon:5.295345 },
+  { id:"F006", lat:50.609594, lon:5.271403 },
+  { id:"F012", lat:50.621917, lon:5.254747 }
+];
+
+/* ----------------------------------------------------------
+   MAP
+---------------------------------------------------------- */
+const map = L.map("map").setView([EBLG.lat, EBLG.lon], 11);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+
+L.circleMarker([EBLG.lat, EBLG.lon], {radius:7, color:"#10b981", fillColor:"#10b981", fillOpacity:1})
+  .addTo(map)
+  .bindPopup("EBLG – Liège Airport");
+
+const SONO_MARKERS = SONOS.map(s => ({
+  ...s,
+  marker: L.circleMarker([s.lat, s.lon], {
+    radius:5, color:"#2563eb", fillColor:"#2563eb", fillOpacity:1
+  }).addTo(map).bindPopup(s.id)
+}));
+
+let corridorLayer = null;
+
+/* ----------------------------------------------------------
+   METAR
+---------------------------------------------------------- */
+async function fetchMetar() {
+  const url = `https://avwx.rest/api/metar/EBLG?token=${AVWX_API_KEY}&format=json`;
+  const r = await fetch(url);
+  return r.json();
+}
+
+function updateMetarUI(m) {
+  document.getElementById("meteo-summary").textContent =
+    `Vent ${m.wind_direction.value}° / ${m.wind_speed.value} kt – T° ${m.temperature.value}°C`;
+
+  document.getElementById("meteo-raw").textContent = m.raw;
+}
+
+/* ----------------------------------------------------------
+   FIDS (via ton proxy Render)
+---------------------------------------------------------- */
+async function fetchFIDS() {
+  const [arr, dep] = await Promise.all([
+    fetch(URL_ARR).then(r => r.json()),
+    fetch(URL_DEP).then(r => r.json())
+  ]);
+
+  return {
+    arrivals: Array.isArray(arr) ? arr : [],
+    departures: Array.isArray(dep) ? dep : []
+  };
+}
+
+function updateFlightsUI(f) {
+  const el = document.getElementById("flights-list");
+  const all = [...f.arrivals, ...f.departures];
+
+  if (!all.length) {
+    el.textContent = "Aucun vol FIDS disponible.";
+    return;
+  }
+
+  el.innerHTML = all.slice(0,50).map(v => `
+    <div class="flight-row">
+      ${v.direction === "Arrivals" ? "ARR" : "DEP"} 
+      ${v.flightPax} (${v.aircraftType}) – RWY ${v.runway || "?"}<br>
+      STD/STA: ${format(v.sTx)} – ETD/ETA: ${format(v.eTx)} – ATD/ATA: ${format(v.aTx)}
+    </div>
+  `).join("");
+}
+
+function format(t) {
+  if (!t) return "-";
+  return new Date(t).toISOString().substring(11,16);
+}
+
+/* ----------------------------------------------------------
+   RUNWAY + COULOIR BRUIT
+---------------------------------------------------------- */
+function extractRunway(f) {
+  const all = [...f.arrivals, ...f.departures];
+  const r = all.find(v => v.runway);
+  if (!r) return null;
+
+  const name = r.runway.replace(/[^0-9]/g,"");
+  return EBLG.runways.find(x => x.name === name) || null;
+}
+
+function computePoint([lat,lon], heading, km) {
+  const R = 6371;
+  const d = km / R;
+  const br = heading * Math.PI/180;
+  const la = lat * Math.PI/180;
+  const lo = lon * Math.PI/180;
+
+  const la2 = Math.asin(Math.sin(la)*Math.cos(d) + Math.cos(la)*Math.sin(d)*Math.cos(br));
+  const lo2 = lo + Math.atan2(Math.sin(br)*Math.sin(d)*Math.cos(la), Math.cos(d)-Math.sin(la)*Math.sin(la2));
+
+  return [la2*180/Math.PI, lo2*180/Math.PI];
+}
+
+function offset([lat,lon], heading, km) {
+  return computePoint([lat,lon], heading, km);
+}
+
+function buildCorridor(heading) {
+  const start = [EBLG.lat, EBLG.lon];
+  const end = computePoint(start, heading, 20);
+
+  const leftStart = offset(start, heading - 90, 1.5);
+  const rightStart = offset(start, heading + 90, 1.5);
+  const leftEnd = offset(end, heading - 90, 3.5);
+  const rightEnd = offset(end, heading + 90, 3.5);
+
+  return [leftStart, leftEnd, rightEnd, rightStart];
+}
+
+function computeImpacted(heading) {
+  const poly = buildCorridor(heading);
+
+  if (corridorLayer) map.removeLayer(corridorLayer);
+  corridorLayer = L.polygon(poly, {color:"#f97316", weight:2, fillOpacity:0.15}).addTo(map);
+
+  const impacted = [];
+
+  SONO_MARKERS.forEach(s => {
+    const inside = L.polygon(poly).getBounds().contains([s.lat, s.lon]);
+    s.marker.setStyle(inside ? {color:"#b91c1c", fillColor:"#b91c1c"} : {color:"#2563eb", fillColor:"#2563eb"});
+    if (inside) impacted.push(s);
+  });
+
+  return impacted;
+}
+
+/* ----------------------------------------------------------
+   MAIN
+---------------------------------------------------------- */
+async function refresh() {
+  const metar = await fetchMetar();
+  updateMetarUI(metar);
+
+  const fids = await fetchFIDS();
+  updateFlightsUI(fids);
+
+  const rw = extractRunway(fids);
+  if (!rw) {
+    document.getElementById("runway-info").textContent = "Piste non déterminée.";
+    return;
+  }
+
+  document.getElementById("runway-info").textContent = `Piste ${rw.name} (cap ${rw.heading}°)`;
+
+  const impacted = computeImpacted(rw.heading);
+
+  document.getElementById("sonos-impacted").innerHTML =
+    impacted.length
+      ? impacted.map(s => `<span class="tag impacted">${s.id}</span>`).join(" ")
+      : "Aucun sonomètre impacté.";
+}
+
+refresh();
+</script>
+
+</body>
+</html>
