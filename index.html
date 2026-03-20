@@ -67,8 +67,12 @@ const AVWX_API_KEY = "ersegQzkf2Dfal-o26B4b5uzMrXBeHK2jOpOaY7nffc"; // ← rempl
 // Ton proxy Render (ex: https://eblg-proxy.onrender.com)
 const PROXY = "https://eblg-proxy.onrender.com/";
 
-const URL_ARR = PROXY + encodeURIComponent("https://fids.liegeairport.com/api/flights/Arrivals");
-const URL_DEP = PROXY + encodeURIComponent("https://fids.liegeairport.com/api/flights/Departures");
+const FIDS_ARR = "https://eblg-proxy.onrender.com/proxy?url=" +
+  encodeURIComponent("https://fids.liegeairport.com/api/flights/Arrivals");
+
+const FIDS_DEP = "https://eblg-proxy.onrender.com/proxy?url=" +
+  encodeURIComponent("https://fids.liegeairport.com/api/flights/Departures");
+
 
 const EBLG = { lat:50.6374, lon:5.4432, runways:[
   { name:"04", heading:40 },
