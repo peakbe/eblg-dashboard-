@@ -221,7 +221,11 @@ function computeImpacted(heading) {
   const { polygon, centerline } = buildCorridor(heading);
 
   if (corridorLayer) map.removeLayer(corridorLayer);
-  corridorLayer = L.polygon(polygon, {color:"#f97316", weight:2, fillOpacity:0.15}).addTo(map);
+  corridorLayer = L.polygon(polygon, {
+    color: "#f97316",
+    weight: 2,
+    fillOpacity: 0.15
+  }).addTo(map);
 
   // Flèches
   if (arrowLayer) map.removeLayer(arrowLayer);
@@ -233,27 +237,30 @@ function computeImpacted(heading) {
         symbol: L.Symbol.arrowHead({
           pixelSize: 14,
           polygon: false,
-          pathOptions: { stroke: true, color: "#f973
-
-                                    })
+          pathOptions: {
+            stroke: true,
+            color: "#f97316",
+            weight: 3
           }
-        ]
-      }).addTo(map);
+        })
+      }
+    ]
+  }).addTo(map);
 
-      const impacted = [];
+  const impacted = [];
 
-      SONO_MARKERS.forEach(s => {
-        const inside = L.polygon(polygon).getBounds().contains([s.lat, s.lon]);
-        s.marker.setStyle(
-          inside
-            ? { color: "#b91c1c", fillColor: "#b91c1c" }
-            : { color: "#2563eb", fillColor: "#2563eb" }
-        );
-        if (inside) impacted.push(s);
-      });
+  SONO_MARKERS.forEach(s => {
+    const inside = L.polygon(polygon).getBounds().contains([s.lat, s.lon]);
+    s.marker.setStyle(
+      inside
+        ? { color: "#b91c1c", fillColor: "#b91c1c" }
+        : { color: "#2563eb", fillColor: "#2563eb" }
+    );
+    if (inside) impacted.push(s);
+  });
 
-      return impacted;
-    }
+  return impacted;
+}
 
     /* ----------------------------------------------------------
        MAIN
