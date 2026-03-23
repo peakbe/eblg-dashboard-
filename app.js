@@ -71,7 +71,6 @@ function updateMetarUI(m) {
 
   document.getElementById("meteo-raw").textContent = m.raw;
 }
-
 /* ----------------------------------------------------------
    FIDS
 ---------------------------------------------------------- */
