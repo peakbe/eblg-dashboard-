@@ -5,11 +5,11 @@
   <title>EBLG – FIDS, METAR, sonomètres</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Leaflet 1.7.1 (compatible PolylineDecorator) -->
+  <!-- Leaflet 1.7.1 -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
-  <!-- PolylineDecorator local (100 % fiable) -->
+  <!-- PolylineDecorator local -->
   <script src="leaflet.polyline-decorator.min.js"></script>
 
   <style>
@@ -227,7 +227,6 @@ function computeImpacted(heading) {
     fillOpacity: 0.15
   }).addTo(map);
 
-  // Flèches
   if (arrowLayer) map.removeLayer(arrowLayer);
   arrowLayer = L.polylineDecorator(centerline, {
     patterns: [
@@ -261,36 +260,35 @@ function computeImpacted(heading) {
 
   return impacted;
 }
+/* ----------------------------------------------------------
+   MAIN
+---------------------------------------------------------- */
+async function refresh() {
+  const metar = await fetchMetar();
+  updateMetarUI(metar);
 
-    /* ----------------------------------------------------------
-       MAIN
-    ---------------------------------------------------------- */
-    async function refresh() {
-      const metar = await fetchMetar();
-      updateMetarUI(metar);
+  const fids = await fetchFIDS();
+  updateFlightsUI(fids);
 
-      const fids = await fetchFIDS();
-      updateFlightsUI(fids);
+  const rw = extractRunway(fids);
+  if (!rw) {
+    document.getElementById("runway-info").textContent = "Piste non déterminée.";
+    return;
+  }
 
-      const rw = extractRunway(fids);
-      if (!rw) {
-        document.getElementById("runway-info").textContent = "Piste non déterminée.";
-        return;
-      }
+  document.getElementById("runway-info").textContent =
+    `Piste ${rw.name} (cap ${rw.heading}°)`;
 
-      document.getElementById("runway-info").textContent =
-        `Piste ${rw.name} (cap ${rw.heading}°)`;
+  const impacted = computeImpacted(rw.heading);
 
-      const impacted = computeImpacted(rw.heading);
+  document.getElementById("sonos-impacted").innerHTML =
+    impacted.length
+      ? impacted.map(s => `<span class="tag impacted">${s.id}</span>`).join(" ")
+      : "Aucun sonomètre impacté.";
+}
 
-      document.getElementById("sonos-impacted").innerHTML =
-        impacted.length
-          ? impacted.map(s => `<span class="tag impacted">${s.id}</span>`).join(" ")
-          : "Aucun sonomètre impacté.";
-    }
-
-    refresh();
-  </script>
+refresh();
+</script>
 
 </body>
 </html>
