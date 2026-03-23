@@ -9,8 +9,8 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
-  <!-- PolylineDecorator 1.7.0 -->
-  <script src="https://cdn.jsdelivr.net/npm/leaflet-polylinedecorator@1.7.0/dist/leaflet.polyline-decorator.min.js?v=999999"></script>
+  <!-- PolylineDecorator local (100 % fiable) -->
+  <script src="leaflet.polyline-decorator.min.js"></script>
 
   <style>
     body { margin:0; font-family:system-ui; display:flex; flex-direction:column; height:100vh; }
@@ -233,51 +233,57 @@ function computeImpacted(heading) {
         symbol: L.Symbol.arrowHead({
           pixelSize: 14,
           polygon: false,
-          pathOptions: { stroke: true, color: "#f97316", weight: 3 }
-        })
+          pathOptions: { stroke: true, color: "#f973
+
+                                    })
+          }
+        ]
+      }).addTo(map);
+
+      const impacted = [];
+
+      SONO_MARKERS.forEach(s => {
+        const inside = L.polygon(polygon).getBounds().contains([s.lat, s.lon]);
+        s.marker.setStyle(
+          inside
+            ? { color: "#b91c1c", fillColor: "#b91c1c" }
+            : { color: "#2563eb", fillColor: "#2563eb" }
+        );
+        if (inside) impacted.push(s);
+      });
+
+      return impacted;
+    }
+
+    /* ----------------------------------------------------------
+       MAIN
+    ---------------------------------------------------------- */
+    async function refresh() {
+      const metar = await fetchMetar();
+      updateMetarUI(metar);
+
+      const fids = await fetchFIDS();
+      updateFlightsUI(fids);
+
+      const rw = extractRunway(fids);
+      if (!rw) {
+        document.getElementById("runway-info").textContent = "Piste non déterminée.";
+        return;
       }
-    ]
-  }).addTo(map);
 
-  const impacted = [];
+      document.getElementById("runway-info").textContent =
+        `Piste ${rw.name} (cap ${rw.heading}°)`;
 
-  SONO_MARKERS.forEach(s => {
-    const inside = L.polygon(polygon).getBounds().contains([s.lat, s.lon]);
-    s.marker.setStyle(inside ? {color:"#b91c1c", fillColor:"#b91c1c"} : {color:"#2563eb", fillColor:"#2563eb"});
-    if (inside) impacted.push(s);
-  });
+      const impacted = computeImpacted(rw.heading);
 
-  return impacted;
-}
+      document.getElementById("sonos-impacted").innerHTML =
+        impacted.length
+          ? impacted.map(s => `<span class="tag impacted">${s.id}</span>`).join(" ")
+          : "Aucun sonomètre impacté.";
+    }
 
-/* ----------------------------------------------------------
-   MAIN
----------------------------------------------------------- */
-async function refresh() {
-  const metar = await fetchMetar();
-  updateMetarUI(metar);
-
-  const fids = await fetchFIDS();
-  updateFlightsUI(fids);
-
-  const rw = extractRunway(fids);
-  if (!rw) {
-    document.getElementById("runway-info").textContent = "Piste non déterminée.";
-    return;
-  }
-
-  document.getElementById("runway-info").textContent = `Piste ${rw.name} (cap ${rw.heading}°)`;
-
-  const impacted = computeImpacted(rw.heading);
-
-  document.getElementById("sonos-impacted").innerHTML =
-    impacted.length
-      ? impacted.map(s => `<span class="tag impacted">${s.id}</span>`).join(" ")
-      : "Aucun sonomètre impacté.";
-}
-
-refresh();
-</script>
+    refresh();
+  </script>
 
 </body>
 </html>
